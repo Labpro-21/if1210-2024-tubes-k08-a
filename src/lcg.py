@@ -45,7 +45,7 @@ def randInt(seed: int, size: int, min: int, max: int) -> int:
 
 # NOTE USAGE EXAMPLE
 # The code below: 8 and 50 are arbitrary, this will produce an array with 50 elements with the elements being in the range [20,30]
-print(randList(8,50,20,30)) 
+# print(randList(8,50,20,30)) 
 # The code below: 6 and 30 are arbitrary, this will produce an integer in range [10,100]
 # print(randInt(6,30,10,100)) 
     
