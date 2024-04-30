@@ -42,7 +42,7 @@ def _string_index_of(string: str, search: str, position: int = 0) -> int:
     for i in range(position, stringLength - searchLength):
         valid = True
         for j in range(0, searchLength):
-            if(string[i + j] == search[j]):
+            if string[i + j] == search[j]:
                 continue
             valid = False
             break
@@ -60,7 +60,7 @@ def _string_last_index_of(string: str, search: str, position: int = None) -> int
     for i in range(stringLength - searchLength - position, -1, -1):
         valid = True
         for j in range(0, searchLength):
-            if(string[i + j] == search[j]):
+            if string[i + j] == search[j]:
                 continue
             valid = False
             break
@@ -78,7 +78,7 @@ def _string_starts_with(string: str, search: str) -> bool:
     if stringLength < searchLength:
         return False
     for i in range(0, searchLength):
-        if(string[i] == search[i]):
+        if string[i] == search[i]:
             continue
         return False
     return True
@@ -89,7 +89,7 @@ def _string_ends_with(string: str, search: str) -> bool:
     if stringLength < searchLength:
         return False
     for i in range(0, searchLength):
-        if(string[stringLength - searchLength + i] == search[i]):
+        if string[stringLength - searchLength + i] == search[i]:
             continue
         return False
     return True
@@ -147,7 +147,7 @@ def _string_trim(string: str) -> str:
 def _string_replace(string: str, search: str, replacement: Union[str, Callable[[str, int, str, dict], str]]) -> str:
     searchLength = len(search)
     foundIndex = _string_index_of(string, search)
-    if(foundIndex == -1):
+    if foundIndex == -1:
         return string
     foundString = _string_slice(string, foundIndex, foundIndex + searchLength) # always will be `search`
     replacementString = replacement(foundString, foundIndex, string, {}) if callable(replacement) else replacement
@@ -160,7 +160,7 @@ def _string_replace_all(string: str, search: str, replacement: Union[str, Callab
     index = 0
     while index < stringLength:
         foundIndex = _string_index_of(string, search, index)
-        if(foundIndex == -1):
+        if foundIndex == -1:
             break
         foundString = _string_slice(string, foundIndex, foundIndex + searchLength) # always will be `search`
         result += _string_slice(string, index, foundIndex)
@@ -170,6 +170,20 @@ def _string_replace_all(string: str, search: str, replacement: Union[str, Callab
             result += replacement
         index = foundIndex + searchLength
     result += _string_slice(string, index)
+    return result
+
+def _string_split(string: str, separator: str) -> "list[str]":
+    stringLength = len(string)
+    separatorLength = len(separator)
+    result: "list[str]" = []
+    index = 0
+    while index < stringLength:
+        foundIndex = _string_index_of(string, separator, index)
+        if foundIndex == -1:
+            break
+        _array_push(result, _string_slice(string, index, foundIndex))
+        index = foundIndex + separatorLength
+    _array_push(result, _string_slice(string, index))
     return result
 
 # Array Primordials
@@ -354,16 +368,19 @@ def _array_sort(array: "list[_T]", comparator: "Callable[[_T, _T], int]" = lambd
     return array
 
 def _array_to_reversed(array: "list[_T]") -> "list[_T]":
-    result: "list[_T]" = []
-    for i in range(len(array) - 1, -1, -1):
-        result.append(array[i])
-    return result
+    array = _array_slice(array)
+    _array_reverse(array)
+    return array
 
 def _array_to_sorted(array: "list[_T]", comparator: "Callable[[_T, _T], int]" = lambda x, y: x - y) -> "list[_T]":
-    return _array_sort(_array_slice(array), comparator)
+    array = _array_slice(array)
+    _array_sort(array, comparator)
+    return array
 
 def _array_to_spliced(array: "list[_T]", start: int, deleteCount: int, *elements: _T) -> "list[_T]":
-    return _array_splice(_array_slice(array), start, deleteCount, *elements)
+    array = _array_slice(array)
+    _array_splice(array, start, deleteCount, *elements)
+    return array
 
 def _array_with(array: "list[_T]", index: int, value: _T) -> "list[_T]":
     array = _array_slice(array)
