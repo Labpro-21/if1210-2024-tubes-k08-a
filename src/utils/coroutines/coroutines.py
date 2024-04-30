@@ -5,9 +5,9 @@ import time
 _Timer = TypedDict("Timer",
     id=int,
     callback=Callable[[], Any],
-    timeout=int,
+    timeout=float,
     repeat=bool,
-    anchor=int
+    anchor=float
 )
 
 _Pollable = TypedDict("Pollable",
@@ -47,19 +47,29 @@ def _looper_get_current() -> _Looper:
     global _looper_current_id, _loopers
     return _loopers[_looper_current_id]
 
-def _looper_closure(looperId: int) -> Any:
-    closure = dict()
-    def saveLastLooperId(self):
+def _looper_make_closure_type():
+    def __init__(self, looperId: int):
+        self.looperId = looperId
+        self.lastLooperId = -1
+    def __enter__(self):
         global _looper_current_id
-        self["lastLooperId"] = _looper_current_id
-        _looper_current_id = looperId
-    def restoreLastLooperId(self):
+        self.lastLooperId = _looper_current_id
+        _looper_current_id = self.looperId
+    def __exit__(self, *_):
         global _looper_current_id
-        _looper_current_id = self["lastLooperId"]
-        self["lastLooperId"] = None
-    setattr(closure, "__enter__", saveLastLooperId)
-    setattr(closure, "__exit__", restoreLastLooperId)
-    return closure
+        _looper_current_id = self.lastLooperId
+        self.lastLooperId = -1
+        return False
+    ClosureType = type("Closure", (object,), dict(
+        __init__=__init__,
+        __enter__=__enter__,
+        __exit__=__exit__
+    ))
+    return ClosureType
+_ClosureType = _looper_make_closure_type()
+
+def _looper_closure(looperId: int) -> _ClosureType:
+    return _ClosureType(looperId)
 
 def _looper_tick(looperId: int) -> None:
     global _looper_current_id
@@ -83,6 +93,7 @@ def _looper_tick_timers(looper: _Looper) -> None:
             continue
         timer["callback"]()
         now = _now()
+        timer["anchor"] = now
         if not timer["repeat"]:
             array_splice(timers, array_index_of(timers, timer), 1)
 
@@ -104,7 +115,7 @@ def _looper_next_timer_id(looper: _Looper) -> int:
     looper["timerIdCounter"] += 1
     return timerId
 
-def _set_timeout(callback: Callable[[], Any], timeout: int) -> int:
+def _set_timeout(callback: Callable[[], Any], timeout: float) -> int:
     looper = _looper_get_current()
     timers = looper["timers"]
     timerId = _looper_next_timer_id(looper)
@@ -118,7 +129,7 @@ def _set_timeout(callback: Callable[[], Any], timeout: int) -> int:
     array_push(timers, timer)
     return timerId
 
-def _set_interval(callback: Callable[[], Any], timeout: int) -> int:
+def _set_interval(callback: Callable[[], Any], timeout: float) -> int:
     looper = _looper_get_current()
     timers = looper["timers"]
     timerId = _looper_next_timer_id(looper)
@@ -132,18 +143,18 @@ def _set_interval(callback: Callable[[], Any], timeout: int) -> int:
     array_push(timers, timer)
     return timerId
 
-def _clear_timeout(id: int) -> None:
+def _clear_timeout(timerId: int) -> None:
     looper = _looper_get_current()
     timers = looper["timers"]
-    index = array_find_index(timers, lambda t: not t["repeat"] and t["id"] == id)
+    index = array_find_index(timers, lambda t: not t["repeat"] and t["id"] == timerId)
     if index == -1:
         return
     array_splice(timers, index, 1)
 
-def _clear_interval(id: int) -> None:
+def _clear_interval(timerId: int) -> None:
     looper = _looper_get_current()
     timers = looper["timers"]
-    index = array_find_index(timers, lambda t: t["repeat"] and t["id"] == id)
+    index = array_find_index(timers, lambda t: t["repeat"] and t["id"] == timerId)
     if index == -1:
         return
     array_splice(timers, index, 1)
