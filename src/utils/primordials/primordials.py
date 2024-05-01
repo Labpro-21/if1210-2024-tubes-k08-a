@@ -224,7 +224,9 @@ def _array_slice(array: "list[_T]", start: int = None, end: int = None) -> "list
         end = len(array)
     return array[start:end]
 
-def _array_splice(array: "list[_T]", start: int, deleteCount: int, *elements: _T) -> "list[_T]":
+def _array_splice(array: "list[_T]", start: int, deleteCount: int = None, *elements: _T) -> "list[_T]":
+    if deleteCount is None:
+        deleteCount = len(array) - start
     deleted: "list[_T]" = []
     while deleteCount > 0:
         if start >= len(array):
