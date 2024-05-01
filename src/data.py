@@ -9,8 +9,8 @@ def get_arr(filename: str, directory: str) -> list[list[str]]:
     res = []
     
     with open(os.path.join(directory, filename)) as f:
-        lines = string_split(f.read(), "\n")
-        for line in lines:
+        f.readline()
+        for line in f:
             array_push(res, string_split(line, ";"))
         array_push(res, "__EOP__")
     return res
