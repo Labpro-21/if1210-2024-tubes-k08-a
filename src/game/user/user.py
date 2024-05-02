@@ -2,6 +2,10 @@ from utils.primordials import *
 from game.state import *
 from game.database import *
 
+# Do NOT expose this function in __init__.py. See note in __init__.py
+def _user_hash_password(password: str) -> str:
+    pass
+
 def _user_is_logged_in(gameState: GameState) -> bool:
     return gamestate_get_user_id(gameState) is not None
 
