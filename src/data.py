@@ -9,8 +9,8 @@ def get_arr(filename: str, directory: str) -> list[list[str]]:
     res = []
     
     with open(os.path.join(directory, filename)) as f:
-        f.readline()
-        for line in f:
+        lines = string_split(f.read(), "\n")
+        for line in lines:
             array_push(res, string_split(line, ";"))
         array_push(res, "__EOP__")
     return res
@@ -23,7 +23,7 @@ def load_user() -> tuple[list[int], list[str], list[str], list[str], list[int]]:
     role_list = []
     oc_list = []
     
-    i = 0
+    i = 1
     temp_user = get_arr("user.csv", directory)
     
     while temp_user[i] != "__EOP__":
@@ -44,7 +44,7 @@ def load_monster() -> tuple[list[int], list[str], list[int], list[int], list[int
     def_power_list = []
     hp_list = []
     
-    i = 0
+    i = 1
     temp_monster = get_arr("monster.csv", directory)
     
     while temp_monster[i] != "__EOP__":
@@ -63,7 +63,7 @@ def load_item_inventory() -> tuple[list[int], list[str], list[int]]:
     type_list = []
     quantity_list = []
 
-    i = 0
+    i = 1
     temp_item_inventory = get_arr("item_inventory.csv", directory)
     
     while temp_item_inventory[i] != "__EOP__":
@@ -80,7 +80,7 @@ def load_monster_inventory() -> tuple[list[int], list[int], list[int]]:
     monster_id_list = []
     level_list = []
 
-    i = 0
+    i = 1
     temp_monster_inventory = get_arr("monster_inventory.csv", directory)
     
     while temp_monster_inventory[i] != "__EOP__":
@@ -97,7 +97,7 @@ def load_item_shop() -> tuple[list[str], list[int], list[int]]:
     stock_list = []
     price_list = []
 
-    i = 0
+    i = 1
     temp_item_shop = get_arr("item_shop.csv", directory)
     
     while temp_item_shop[i] != "__EOP__":
@@ -114,7 +114,7 @@ def load_monster_shop() -> tuple[list[int], list[int], list[int]]:
     stock_list = []
     price_list = []
 
-    i = 0
+    i = 1
     temp_monster_shop = get_arr("monster_shop.csv", directory)
     
     while temp_monster_shop[i] != "__EOP__":
