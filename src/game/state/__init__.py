@@ -1,4 +1,4 @@
-from .state import _UserSchemaType, _MonsterSchemaType, _PotionSchemaType, _BattleSchemaType, _ArenaSchemaType, _ShopSchemaType, _LaboratorySchemaType, _InventoryItemSchemaType, _InventoryMonsterSchemaType, _UserSchema, _MonsterSchema, _PotionSchema, _BattleSchema, _ArenaSchema, _ShopSchema, _LaboratorySchema, _InventoryItemSchema, _InventoryMonsterSchema, _UserDatabase, _MonsterDatabase, _PotionDatabase, _BattleDatabase, _ArenaDatabase, _ShopDatabase, _LaboratoryDatabase, _InventoryItemDatabase, _InventoryMonsterDatabase, _GameState, _gamestate_new, _gamestate_get_user_database, _gamestate_get_monster_database, _gamestate_get_potion_database, _gamestate_get_battle_database, _gamestate_get_arena_database, _gamestate_get_shop_database, _gamestate_get_laboratory_database, _gamestate_get_inventory_item_database, _gamestate_get_inventory_monster_database, _gamestate_get_user_id, _gamestate_set_user_id
+from .state import _UserSchemaType, _MonsterSchemaType, _PotionSchemaType, _BattleSchemaType, _ArenaSchemaType, _ShopSchemaType, _LaboratorySchemaType, _InventoryItemSchemaType, _InventoryMonsterSchemaType, _UserSchema, _MonsterSchema, _PotionSchema, _BattleSchema, _ArenaSchema, _ShopSchema, _LaboratorySchema, _InventoryItemSchema, _InventoryMonsterSchema, _UserDatabase, _MonsterDatabase, _PotionDatabase, _BattleDatabase, _ArenaDatabase, _ShopDatabase, _LaboratoryDatabase, _InventoryItemDatabase, _InventoryMonsterDatabase, _GameState, _gamestate_new, _gamestate_save, _gamestate_get_user_database, _gamestate_get_monster_database, _gamestate_get_potion_database, _gamestate_get_battle_database, _gamestate_get_arena_database, _gamestate_get_shop_database, _gamestate_get_laboratory_database, _gamestate_get_inventory_item_database, _gamestate_get_inventory_monster_database, _gamestate_get_user_id, _gamestate_set_user_id, _gamestate_deltatime, _gamestate_time, _gamestate_rand
 
 UserSchemaType = _UserSchemaType
 MonsterSchemaType = _MonsterSchemaType
@@ -29,6 +29,7 @@ InventoryItemDatabase = _InventoryItemDatabase
 InventoryMonsterDatabase = _InventoryMonsterDatabase
 GameState = _GameState
 gamestate_new = _gamestate_new
+gamestate_save = _gamestate_save
 gamestate_get_user_database = _gamestate_get_user_database
 gamestate_get_monster_database = _gamestate_get_monster_database
 gamestate_get_potion_database = _gamestate_get_potion_database
@@ -40,3 +41,6 @@ gamestate_get_inventory_item_database = _gamestate_get_inventory_item_database
 gamestate_get_inventory_monster_database = _gamestate_get_inventory_monster_database
 gamestate_get_user_id = _gamestate_get_user_id
 gamestate_set_user_id = _gamestate_set_user_id
+gamestate_time = _gamestate_time
+gamestate_deltatime = _gamestate_deltatime
+gamestate_rand = _gamestate_rand
