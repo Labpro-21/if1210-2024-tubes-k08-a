@@ -1,4 +1,4 @@
-from typing import Any, TypeVar, Callable, Union
+from typing import Any, TypeVar, Callable, Union, NamedTuple, Type
 
 _T = TypeVar("_T")
 _U = TypeVar("_U")
@@ -39,7 +39,11 @@ def _string_index_of(string: str, search: str, position: int = 0) -> int:
     searchLength = len(search)
     if position < 0:
         position = 0
-    for i in range(position, stringLength - searchLength):
+    if position > stringLength:
+        position = stringLength
+    if searchLength == 0:
+        return position
+    for i in range(position, stringLength - searchLength + 1):
         valid = True
         for j in range(0, searchLength):
             if string[i + j] == search[j]:
@@ -55,9 +59,14 @@ def _string_last_index_of(string: str, search: str, position: int = None) -> int
     stringLength = len(string)
     searchLength = len(search)
     if position is None:
-        position = stringLength - 1
-    position = stringLength - position - 1
-    for i in range(stringLength - searchLength - position, -1, -1):
+        position = stringLength
+    if position < 0:
+        position = 0
+    if position > stringLength:
+        position = stringLength
+    if searchLength == 0:
+        return position
+    for i in range(position - searchLength, -1, -1):
         valid = True
         for j in range(0, searchLength):
             if string[i + j] == search[j]:
@@ -126,9 +135,9 @@ def _string_trim_end(string: str) -> str:
     trimIndex = len(string) - 1
     while trimIndex >= 0:
         character = string[trimIndex]
-        if _array_includes(_string_whitespace_characters, character) or _array_includes(_string_line_terminators_characters, character):
-            continue
-        break
+        if not _array_includes(_string_whitespace_characters, character) and not _array_includes(_string_line_terminators_characters, character):
+            break
+        trimIndex -= 1
     return _string_slice(string, 0, trimIndex + 1)
 
 def _string_trim_start(string: str) -> str:
@@ -136,9 +145,9 @@ def _string_trim_start(string: str) -> str:
     trimIndex = 0
     while trimIndex < stringLength:
         character = string[trimIndex]
-        if _array_includes(_string_whitespace_characters, character) or _array_includes(_string_line_terminators_characters, character):
-            continue
-        break
+        if not _array_includes(_string_whitespace_characters, character) and not _array_includes(_string_line_terminators_characters, character):
+            break
+        trimIndex += 1
     return _string_slice(string, trimIndex)
 
 def _string_trim(string: str) -> str:
@@ -388,3 +397,27 @@ def _array_with(array: list[_T], index: int, value: _T) -> list[_T]:
     array = _array_slice(array)
     array[index] = value
     return array
+
+# Tuple/NamedTuple primordials
+
+_Tuple = TypeVar("_Tuple", covariant=tuple)
+_NamedTuple = TypeVar("_NamedTuple", covariant=NamedTuple)
+
+def _tuple_with(tuple: _Tuple, **elements: Any) -> _Tuple:
+    elements = []
+    for i in range(len(tuple)):
+        elements[i] = tuple[i]
+    for key, value in elements:
+        if not _string_starts_with(key, "_"):
+            continue
+        elements[int(_string_slice(key, 1))] = value
+    return (*elements,)
+
+def _namedtuple_with(tuple: _NamedTuple, **elements: Any) -> _NamedTuple:
+    tupleType: Type[NamedTuple] = type(tuple)
+    elements = dict()
+    for key in tupleType._fields:
+        elements[key] = getattr(tuple, key)
+    for key, value in elements:
+        elements[key] = value
+    return tupleType(**elements)
