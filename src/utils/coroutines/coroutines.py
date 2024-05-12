@@ -99,7 +99,7 @@ def _looper_tick_timers(looper: _Looper) -> None:
 
 def _looper_tick_pollables(looper: _Looper) -> None:
     pollables = looper["pollables"]
-    nextPollables = array_map(pollables, lambda p: p["callback"]())
+    nextPollables = array_map(pollables, lambda p, *_: p["callback"]())
     for i in range(len(nextPollables) - 1, -1, -1):
         if nextPollables:
            continue
@@ -146,7 +146,7 @@ def _set_interval(callback: Callable[[], Any], timeout: float) -> int:
 def _clear_timeout(timerId: int) -> None:
     looper = _looper_get_current()
     timers = looper["timers"]
-    index = array_find_index(timers, lambda t: not t["repeat"] and t["id"] == timerId)
+    index = array_find_index(timers, lambda t, *_: not t["repeat"] and t["id"] == timerId)
     if index == -1:
         return
     array_splice(timers, index, 1)
@@ -154,7 +154,7 @@ def _clear_timeout(timerId: int) -> None:
 def _clear_interval(timerId: int) -> None:
     looper = _looper_get_current()
     timers = looper["timers"]
-    index = array_find_index(timers, lambda t: t["repeat"] and t["id"] == timerId)
+    index = array_find_index(timers, lambda t, *_: t["repeat"] and t["id"] == timerId)
     if index == -1:
         return
     array_splice(timers, index, 1)

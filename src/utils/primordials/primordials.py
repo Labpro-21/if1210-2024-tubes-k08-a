@@ -190,9 +190,12 @@ def _string_split(string: str, separator: str) -> list[str]:
         foundIndex = _string_index_of(string, separator, index)
         if foundIndex == -1:
             break
+        if separatorLength == 0:
+            foundIndex += 1
         _array_push(result, _string_slice(string, index, foundIndex))
         index = foundIndex + separatorLength
-    _array_push(result, _string_slice(string, index))
+    if separatorLength > 0:
+        _array_push(result, _string_slice(string, index))
     return result
 
 # Array Primordials
@@ -398,26 +401,42 @@ def _array_with(array: list[_T], index: int, value: _T) -> list[_T]:
     array[index] = value
     return array
 
-# Tuple/NamedTuple primordials
+# Tuple/NamedTuple/Dict primordials
 
 _Tuple = TypeVar("_Tuple", covariant=tuple)
 _NamedTuple = TypeVar("_NamedTuple", covariant=NamedTuple)
+_Dict = TypeVar("_Dict", covariant=dict)
 
 def _tuple_with(tuple: _Tuple, **elements: Any) -> _Tuple:
-    elements = []
+    result = []
     for i in range(len(tuple)):
-        elements[i] = tuple[i]
-    for key, value in elements:
+        result[i] = tuple[i]
+    for key, value in elements.items():
         if not _string_starts_with(key, "_"):
             continue
-        elements[int(_string_slice(key, 1))] = value
-    return (*elements,)
+        result[int(_string_slice(key, 1))] = value
+    return (*result,)
 
 def _namedtuple_with(tuple: _NamedTuple, **elements: Any) -> _NamedTuple:
     tupleType: Type[NamedTuple] = type(tuple)
-    elements = dict()
+    result = dict()
     for key in tupleType._fields:
-        elements[key] = getattr(tuple, key)
-    for key, value in elements:
-        elements[key] = value
-    return tupleType(**elements)
+        result[key] = getattr(tuple, key)
+    for key, value in elements.items():
+        result[key] = value
+    return tupleType(**result)
+
+def _dict_with(dictionary: _Dict, **elements: Any) -> _Dict:
+    result = dict()
+    for key, value in dictionary.items():
+        result[key] = value
+    for key, value in elements.items():
+        result[key] = value
+    return result
+
+def _dict_key_of(dictionary: _Dict, element: Any) -> Any:
+    for key, value in dictionary.items():
+        if value != element:
+            continue
+        return key
+    return None
