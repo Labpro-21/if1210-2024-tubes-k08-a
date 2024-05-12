@@ -1,3 +1,6 @@
+import time
+import math
+
 def lcg(seed: int) -> tuple[int, float]:
     # LCG function that produces the next seed and r (a float in range [0,1))
     # a, c, and m are arbitrary
@@ -35,8 +38,12 @@ def cycle(seed: int, size: int) -> float:
         seed, r = lcg(seed)
     return r
 
-def rand_int(seed: int, size: int, min: int, max: int) -> int:
-    # rand_int() seed and size are arbitrary it only affects the randomizer
+# Declaring initial seed and size for ran_int
+seed : int = math.floor(time.time())
+size : int = math.floor(time.time()) % 1000 
+
+def rand_int(min: int, max: int) -> int:
+    # (NEW) rand_int() will have a predetermined seed and size using current time to make it more randomized
     # rand_int() produces a random integer in range [min,max] 
     rand: int
     for i in range(size):
@@ -47,7 +54,7 @@ def rand_int(seed: int, size: int, min: int, max: int) -> int:
 # The code below: 8 and 50 are arbitrary, this will produce an array with 50 elements with the elements being in the range [20,30]
 # print(rand_list(8,50,20,30)) 
 # The code below: 6 and 30 are arbitrary, this will produce an integer in range [10,100]
-# print(rand_int(6,30,10,100)) 
+# print(rand_int(10,100)) 
     
     
     
