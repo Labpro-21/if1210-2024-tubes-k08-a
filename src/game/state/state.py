@@ -220,6 +220,7 @@ def _gamestate_new(directory: str) -> _GameState:
         laboratoryDatabase=laboratoryDatabase,
         inventoryItemDatabase=inventoryItemDatabase,
         inventoryMonsterDatabase=inventoryMonsterDatabase,
+        userId=None
     )
 def _gamestate_save(gameState: _GameState) -> None:
     database_save(gameState["userDatabase"])

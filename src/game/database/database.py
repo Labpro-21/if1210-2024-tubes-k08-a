@@ -122,6 +122,10 @@ def _database_get_entries_length(database: Database[_DatabaseSchemaType]) -> int
 def _database_get_entry_at(database: Database[_DatabaseSchemaType], i: int) -> _DatabaseSchemaType:
     return database["entries"][i]
 def _database_set_entry_at(database: Database[_DatabaseSchemaType], i: int, entry: _DatabaseSchemaType) -> None:
-    database["entries"][i] = entry
+    entries = database["entries"]
+    if i < len(entries):
+        entries[i] = entry
+    else:
+        array_push(entries, entry)
 def _database_delete_entry_at(database: Database[_DatabaseSchemaType], i: int) -> None:
     array_splice(database["entries"], i, 1)
