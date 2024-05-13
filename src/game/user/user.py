@@ -13,6 +13,7 @@ def _user_register(gameState: GameState) -> None:
     Prosedur untuk register user baru
     '''
     user_database = gamestate_get_user_database(gameState)
+    user_entries = database_get_entries(user_database)
     # mengecek apakah user sedang login atau tidak
     if _user_is_logged_in(gameState):
         print("Anda sudah login, logout dulu untuk register!")
@@ -40,8 +41,8 @@ def _user_register(gameState: GameState) -> None:
         return
     else:
     # mengecek apakah username sudah ada di database   
-        for i in range (database_get_entries_length(user_database)):
-            if new_username == database_get_entries(user_database)[i].username:
+        for i in range (len(user_entries)):
+            if new_username == user_entries[i].username:
                 print(f"Username {new_username} sudah terpakai, silahkan gunakan username lain!")
                 return
 
@@ -78,8 +79,9 @@ Input angka saja, contoh: input '1' untuk memilih Monster1
     print(f"Selamat datang Agent {new_username}. Mari kita mengalahkan Dr. Asep Spakbor dengan {starter_choice}!")
     
     # writing new user to database
-    new_id = database_get_entries_length(user_database) + 1 # asumsi id mulai dari 1, jika tidak hapus +1
-    database_set_entry_at(user_database, id, 
+    # id itu zero-based, jadi langsung pakai length() untuk mendapatkan id selanjutnya.
+    new_id = database_get_entries_length(user_database)
+    database_set_entry_at(user_database, new_id, 
                           UserSchemaType(id = new_id, 
                                          username = new_username,
                                          password = new_password,
@@ -92,6 +94,7 @@ def _user_login(gameState: GameState) -> None:
     Prosedur untuk login user
     '''
     user_database = gamestate_get_user_database(gameState)
+    user_entries = database_get_entries(user_database)
     # mengecek apakah user sedang login atau tidak
     if _user_is_logged_in(gameState):
         print("Anda sudah login, logout dulu untuk login!")
@@ -102,8 +105,8 @@ def _user_login(gameState: GameState) -> None:
     
     # mencari apakah user ada
     user_DNE = True 
-    for i in range (database_get_entries_length(user_database)):
-        if username == database_get_entries(user_database)[i].username:
+    for i in range (len(user_entries)):
+        if username == user_entries[i].username:
             user_DNE = False
             user_index = i
             break
@@ -118,7 +121,7 @@ def _user_login(gameState: GameState) -> None:
     password: str = input("Masukan password: ")
     
     # mengecek password benar atau tidak
-    if password != database_get_entries(user_database)[user_index].password: # salah
+    if password != user_entries[user_index].password: # salah
         print("")
         print("Password salah!")
         return
@@ -127,7 +130,7 @@ def _user_login(gameState: GameState) -> None:
 Selamat datang, Agent {username}!
 Masukkan command “help” untuk daftar command yang dapat kamu panggil.
               ''')
-        newly_logged_in_id = database_get_entries(user_database)[user_index].id
+        newly_logged_in_id = user_entries[user_index].id
         gamestate_set_user_id(gameState, newly_logged_in_id)
 
 def _user_logout(gameState: GameState) -> None:
