@@ -2,6 +2,8 @@ from utils.primordials import *
 from utils.coroutines import *
 from utils.console import *
 from game.state import *
+from game.database import *
+from testutils import Formatter
 from os import path
 
 if __name__ == "__main__":
@@ -17,6 +19,8 @@ if __name__ == "__main__":
         print("2. Register user")
         print("3. Login user")
         print("4. logout user")
+        print("5. Inspect user database")
+        print("6. exit")
         choice = int(input())
         if choice == 1:
             print("Is logged in: " + str(u.user_is_logged_in(gameState)))
@@ -26,6 +30,11 @@ if __name__ == "__main__":
             u.user_login(gameState)
         if choice == 4:
             u.user_logout(gameState)
+        if choice == 5:
+            userDatabase = gamestate_get_user_database(gameState)
+            print(Formatter()(userDatabase))
+        if choice == 6:
+            exit()
         print("\n\n")
 
     # looper = looper_new("Main")
