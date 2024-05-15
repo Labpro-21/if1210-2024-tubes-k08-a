@@ -368,7 +368,9 @@ def _array_reduce_right(array: list[_T], callback: Callable[[_U, _T, int, list[_
 def _array_reverse(array: list[_T]) -> None:
     arrayLength = len(array)
     for i in range(0, arrayLength // 2):
+        temp = array[i]
         array[i] = array[arrayLength - i - 1]
+        array[arrayLength - i - 1] = temp
 
 def _array_sort(array: list[_T], comparator: Callable[[_T, _T], int] = lambda x, y: x - y) -> list[_T]:
     arrayLength = len(array)

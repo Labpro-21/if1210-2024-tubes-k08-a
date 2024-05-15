@@ -4,7 +4,7 @@ import fs from "fs/promises";
 const __dirname = process.cwd();
 
 (async () => {
-	const files = ["console.py", "driver_std.py"];
+	const files = ["console.py", "driver_std.py", "views.py"];
 	let result = "";
 	for(const file of files) {
 		const moduleName = file.split(".")[0];

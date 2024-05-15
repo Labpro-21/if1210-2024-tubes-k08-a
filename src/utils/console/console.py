@@ -1,7 +1,12 @@
 from utils.math import *
 from utils.primordials import *
 from utils.mixin import *
-from typing import TypedDict, Any, Callable, Union, Literal, NamedTuple
+from typing import TypedDict, Any, Callable, Union, Literal, NamedTuple, Optional
+
+_Direction = Union[
+    Literal["Abscissa"],
+    Literal["Ordinate"]
+]
 
 _PosType = Union[
     Literal["Absolute"], 
@@ -28,7 +33,7 @@ _PosCenter = TypedDict("Pos",
 )
 _PosEnd = TypedDict("Pos",
     type=Literal["End"],
-    offset=float
+    offset=Optional[float]
 )
 _PosCombine = TypedDict("Pos",
     type=Literal["Combine"],
@@ -45,6 +50,7 @@ _PosFunction = TypedDict("Pos",
     type=Literal["Function"],
     function=Callable[[float], float]
 )
+
 def _pos_from_absolute(absolute: float) -> _PosAbsolute:
     return dict(
         type="Absolute",
@@ -96,6 +102,7 @@ def _pos_as_view(pos: _Pos) -> Union[None, _PosView]:
     return pos if pos["type"] == "View" else None
 def _pos_as_function(pos: _Pos) -> Union[None, _PosFunction]:
     return pos if pos["type"] == "Function" else None
+
 def _pos_anchor(pos: _Pos, scalar: float) -> float:
     if _pos_as_absolute(pos) is not None:
         return _pos_absolute_anchor(pos, scalar)
@@ -114,7 +121,7 @@ def _pos_anchor(pos: _Pos, scalar: float) -> float:
 def _pos_absolute_anchor(pos: _PosAbsolute, scalar: float) -> float:
     return pos["absolute"]
 def _pos_factor_anchor(pos: _PosFactor, scalar: float) -> float:
-    return pos["factor"] * scalar
+    return int(pos["factor"] * scalar)
 def _pos_center_anchor(pos: _PosCenter, scalar: float) -> float:
     return scalar / 2
 def _pos_end_anchor(pos: _PosEnd, scalar: float) -> float:
@@ -139,9 +146,51 @@ def _pos_view_anchor(pos: _PosView, scalar: float) -> float:
 def _pos_function_anchor(pos: _PosFunction, scalar: float) -> float:
     return pos["function"](scalar)
 
+def _pos_calculate(pos: _Pos, scalar: float, direction: _Direction, dim: "_Dim", view: "_View") -> float:
+    if _pos_as_absolute(pos) is not None:
+        return _pos_absolute_calculate(pos, scalar, direction, dim, view)
+    if _pos_as_factor(pos) is not None:
+        return _pos_factor_calculate(pos, scalar, direction, dim, view)
+    if _pos_as_center(pos) is not None:
+        return _pos_center_calculate(pos, scalar, direction, dim, view)
+    if _pos_as_end(pos) is not None:
+        return _pos_end_calculate(pos, scalar, direction, dim, view)
+    if _pos_as_combine(pos) is not None:
+        return _pos_combine_calculate(pos, scalar, direction, dim, view)
+    if _pos_as_view(pos) is not None:
+        return _pos_view_calculate(pos, scalar, direction, dim, view)
+    if _pos_as_function(pos) is not None:
+        return _pos_function_calculate(pos, scalar, direction, dim, view)
+def _pos_absolute_calculate(pos: _PosAbsolute, scalar: float, direction: _Direction, dim: "_Dim", view: "_View") -> float:
+    return _pos_absolute_anchor(pos, scalar)
+def _pos_factor_calculate(pos: _PosFactor, scalar: float, direction: _Direction, dim: "_Dim", view: "_View") -> float:
+    return _pos_factor_anchor(pos, scalar)
+def _pos_center_calculate(pos: _PosCenter, scalar: float, direction: _Direction, dim: "_Dim", view: "_View") -> float:
+    result = max(0, _dim_calculate(dim, scalar, direction, view))
+    result = _pos_center_anchor(scalar - result)
+    return result
+def _pos_end_calculate(pos: _PosEnd, scalar: float, direction: _Direction, dim: "_Dim", view: "_View") -> float:
+    offset = pos["offset"]
+    result = _pos_end_anchor(pos, scalar)
+    if offset is not None:
+        return result - offset
+    return result - _dim_anchor(dim, scalar)
+def _pos_combine_calculate(pos: _PosCombine, scalar: float, direction: _Direction, dim: "_Dim", view: "_View") -> float:
+    leftAnchor = _pos_calculate(pos["left"], scalar, direction, dim, view)
+    rightAnchor = _pos_calculate(pos["right"], scalar, direction, dim, view)
+    return leftAnchor + rightAnchor if pos["add"] else leftAnchor - rightAnchor
+def _pos_view_calculate(pos: _PosView, scalar: float, direction: _Direction, dim: "_Dim", view: "_View") -> float:
+    return _pos_view_anchor(pos, scalar)
+def _pos_function_calculate(pos: _PosFunction, scalar: float, direction: _Direction, dim: "_Dim", view: "_View") -> float:
+    return _pos_function_anchor(pos, scalar)
+
 def _pos_add(left: _Pos, right: _Pos) -> _Pos:
+    if _pos_as_absolute(left) is not None and _pos_as_absolute(right) is not None:
+        return _pos_from_absolute(_pos_anchor(left, 0) + _pos_anchor(right, 0))
     return _pos_from_combine(True, left, right)
 def _pos_sub(left: _Pos, right: _Pos) -> _Pos:
+    if _pos_as_absolute(left) is not None and _pos_as_absolute(right) is not None:
+        return _pos_from_absolute(_pos_anchor(left, 0) - _pos_anchor(right, 0))
     return _pos_from_combine(False, left, right)
 def _pos_from_view_left(view: "_View") -> _Pos:
     return _pos_from_combine(True, _pos_from_view(view, 0), _pos_from_absolute(0))
@@ -162,7 +211,8 @@ _DimType = Union[
     Literal["Fill"], 
     Literal["Combine"], 
     Literal["View"], 
-    Literal["Function"]
+    Literal["Function"],
+    Literal["Auto"]
 ]
 _Dim = TypedDict("Dim",
     type=_DimType
@@ -194,6 +244,18 @@ _DimFunction = TypedDict("Dim",
     type=Literal["Function"],
     function=Callable[[float], float]
 )
+_DimAutoMode = Union[
+    Literal["Text"],
+    Literal["Content"],
+    Literal["Text|Content"],
+]
+_DimAuto = TypedDict("Dim",
+    type=Literal["Auto"],
+    mode=_DimAutoMode,
+    min=Optional[_Dim],
+    max=Optional[_Dim]
+)
+
 def _dim_from_absolute(absolute: float) -> _DimAbsolute:
     return dict(
         type="Absolute",
@@ -227,6 +289,13 @@ def _dim_from_function(function: Callable[[float], float]) -> _DimFunction:
         type="Function",
         function=function
     )
+def _dim_from_auto(mode: _DimAutoMode, min: _Dim, max: _Dim) -> _DimAuto:
+    return dict(
+        type="Auto",
+        mode=mode,
+        min=min,
+        max=max
+    )
 def _dim_as_absolute(dim: _Dim) -> Union[None, _DimAbsolute]:
     return dim if dim["type"] == "Absolute" else None
 def _dim_as_factor(dim: _Dim) -> Union[None, _DimFactor]:
@@ -239,6 +308,9 @@ def _dim_as_view(dim: _Dim) -> Union[None, _DimView]:
     return dim if dim["type"] == "View" else None
 def _dim_as_function(dim: _Dim) -> Union[None, _DimFunction]:
     return dim if dim["type"] == "Function" else None
+def _dim_as_auto(dim: _Dim) -> Union[None, _DimAuto]:
+    return dim if dim["type"] == "Auto" else None
+
 def _dim_anchor(dim: _Dim, scalar: float) -> float:
     if _dim_as_absolute(dim) is not None:
         return _dim_absolute_anchor(dim, scalar)
@@ -252,10 +324,12 @@ def _dim_anchor(dim: _Dim, scalar: float) -> float:
         return _dim_view_anchor(dim, scalar)
     if _dim_as_function(dim) is not None:
         return _dim_function_anchor(dim, scalar)
+    if _dim_as_auto(dim) is not None:
+        return _dim_auto_anchor(dim, scalar)
 def _dim_absolute_anchor(dim: _DimAbsolute, scalar: float) -> float:
     return dim["absolute"]
 def _dim_factor_anchor(dim: _DimFactor, scalar: float) -> float:
-    return dim["factor"] * scalar
+    return int(dim["factor"] * scalar)
 def _dim_fill_anchor(dim: _DimFill, scalar: float) -> float:
     return scalar - dim["offset"]
 def _dim_combine_anchor(dim: _DimCombine, scalar: float) -> float:
@@ -273,10 +347,82 @@ def _dim_view_anchor(dim: _DimView, scalar: float) -> float:
     return None
 def _dim_function_anchor(dim: _DimFunction, scalar: float) -> float:
     return dim["data"](scalar)
+def _dim_auto_anchor(dim: _DimAuto, scalar: float) -> float:
+    # TODO
+    pass
+
+def _dim_calculate(dim: _Dim, scalar: float, direction: _Direction, position: float, view: "_View") -> float:
+    if _dim_as_absolute(dim) is not None:
+        return _dim_absolute_calculate(dim, scalar, direction, position, view)
+    if _dim_as_factor(dim) is not None:
+        return _dim_factor_calculate(dim, scalar, direction, position, view)
+    if _dim_as_fill(dim) is not None:
+        return _dim_fill_calculate(dim, scalar, direction, position, view)
+    if _dim_as_combine(dim) is not None:
+        return _dim_combine_calculate(dim, scalar, direction, position, view)
+    if _dim_as_view(dim) is not None:
+        return _dim_view_calculate(dim, scalar, direction, position, view)
+    if _dim_as_function(dim) is not None:
+        return _dim_function_calculate(dim, scalar, direction, position, view)
+    if _dim_as_auto(dim) is not None:
+        return _dim_auto_calculate(dim, scalar, direction, position, view)
+def _dim_absolute_calculate(dim: _DimAbsolute, scalar: float, direction: _Direction, position: float, view: "_View") -> float:
+    return max(0, _dim_absolute_anchor(dim, 0))
+def _dim_factor_calculate(dim: _DimFactor, scalar: float, direction: _Direction, position: float, view: "_View") -> float:
+    return _dim_factor_anchor(dim, scalar)
+def _dim_fill_calculate(dim: _DimFill, scalar: float, direction: _Direction, position: float, view: "_View") -> float:
+    return max(0, _dim_fill_anchor(dim, scalar - position))
+def _dim_combine_calculate(dim: _DimCombine, scalar: float, direction: _Direction, position: float, view: "_View") -> float:
+    leftAnchor = _dim_calculate(dim["left"], scalar, direction, position, view)
+    rightAnchor = _dim_calculate(dim["right"], scalar, direction, position, view)
+    return leftAnchor + rightAnchor if dim["add"] else max(0, leftAnchor - rightAnchor)
+def _dim_view_calculate(dim: _DimView, scalar: float, direction: _Direction, position: float, view: "_View") -> float:
+    return max(0, _dim_view_calculate(dim, scalar - position))
+def _dim_function_calculate(dim: _DimFunction, scalar: float, direction: _Direction, position: float, view: "_View") -> float:
+    return max(0, _dim_function_anchor(dim, scalar - position))
+def _dim_auto_calculate(dim: _DimAuto, scalar: float, direction: _Direction, position: float, view: "_View") -> float:
+    mode = dim["mode"]
+    minAuto = _dim_anchor(dim["min"], scalar) if dim["min"] is not None else 0
+    maxAuto = _dim_anchor(dim["max"], scalar) if dim["max"] is not None else scalar
+    if minAuto > scalar:
+        return scalar
+    textSize = 0
+    subviewsSize = 0
+    if mode == "Text" or mode == "Text|Content":
+        textFormatter = _view_get_text_formatter(view)
+        textFormatterSize = _text_formatter_get_size(textFormatter)
+        textSize = textFormatterSize.w if direction == "Abscissa" else textFormatterSize.h
+    if mode == "Content" or mode == "Text|Content":
+        internalContentSize = view["contentSize"] # this is illegal
+        if internalContentSize is not None:
+            subviewsSize = internalContentSize.w if direction == "Abscissa" else internalContentSize.h
+        else:
+            subviews = view["subviews"] # this is illegal
+            for subview in subviews:
+                if direction == "Abscissa" and _pos_as_end(_view_get_x(subview)) is not None:
+                    continue
+                if direction == "Ordinate" and _pos_as_end(_view_get_y(subview)) is not None:
+                    continue
+                subviewFrame = _view_get_frame(view)
+                subviewSize = subviewFrame.x + subviewFrame.w if direction == "Abscissa" else subviewFrame.y + subviewFrame.h
+                if subviewSize > subviewsSize:
+                    subviewsSize = subviewSize
+    result = max(textSize, subviewsSize)
+    marginThickness = _adornment_get_thickness(_view_get_margin(view))
+    borderThickness = _adornment_get_thickness(_view_get_border(view))
+    paddingThickness = _adornment_get_thickness(_view_get_padding(view))
+    totalThickness = _thickness_add(_thickness_add(marginThickness, borderThickness), paddingThickness)
+    result += _thickness_get_horizontal(totalThickness) if direction == "Abscissa" else _thickness_get_vertical(totalThickness)
+    result = max(minAuto, min(maxAuto, result))
+    return result
 
 def _dim_add(left: _Dim, right: _Dim) -> _Dim:
+    if _dim_as_absolute(left) is not None and _dim_as_absolute(right) is not None:
+        return _dim_from_absolute(_dim_anchor(left, 0) + _dim_anchor(right, 0))
     return _dim_from_combine(True, left, right)
 def _dim_sub(left: _Dim, right: _Dim) -> _Dim:
+    if _dim_as_absolute(left) is not None and _dim_as_absolute(right) is not None:
+        return _dim_from_absolute(_dim_anchor(left, 0) - _dim_anchor(right, 0))
     return _dim_from_combine(False, left, right)
 def _dim_from_view_width(view: "_View") -> _Dim:
     return _dim_from_view(view, 1)
@@ -322,24 +468,36 @@ def _driver_new(attribute: _DriverAttribute, **kwargs) -> _Driver:
         **mixin_new(kwargs)
     )
 def _driver_get_size(driver: _Driver) -> Size:
+    if mixin_is_override(driver):
+        return mixin_call_override(driver)
     return driver["size"]
 def _driver_get_attribtue(driver: _Driver) -> _DriverAttribute:
+    if mixin_is_override(driver):
+        return mixin_call_override(driver)
     return driver["attribute"]
 def _driver_get_rune_width(driver: _Driver, rune: _Rune, direction: "_TextDirection") -> int:
+    if mixin_is_override(driver):
+        return mixin_call_override(driver)
     attribute = driver["attribute"]
     if rune.character == "\t" and _text_direction_is_horizontal(direction):
         return attribute.tabSize
     return 1
 def _driver_get_rune_height(driver: _Driver, rune: _Rune, direction: "_TextDirection") -> int:
+    if mixin_is_override(driver):
+        return mixin_call_override(driver)
     attribute = driver["attribute"]
     if rune.character == "\t" and _text_direction_is_vertical(direction):
         return attribute.tabSize
     return 1
 def _driver_set_size(driver: _Driver, size: Size) -> None:
+    if mixin_is_override(driver):
+        return mixin_call_override(driver)
     driver["size"] = size
     driver["contents"] = [_Rune_clear for _ in range(size.w * size.h)]
     driver["dirtyLines"] = [True for _ in range(size.h)]
 def _driver_set_content(driver: _Driver, x: int, y: int, rune: _Rune) -> None:
+    if mixin_is_override(driver):
+        return mixin_call_override(driver)
     size = driver["size"]
     contents = driver["contents"]
     dirtyLines = driver["dirtyLines"]
@@ -347,7 +505,13 @@ def _driver_set_content(driver: _Driver, x: int, y: int, rune: _Rune) -> None:
         return
     contents[y * size.w + x] = rune
     dirtyLines[y] = True
+def _driver_clear_content(driver: _Driver, x: int, y: int) -> None:
+    if mixin_is_override(driver):
+        return mixin_call_override(driver)
+    _driver_set_content(driver, x, y, _Rune_clear)
 def _driver_fill_rect(driver: _Driver, rectangle: Rectangle, rune: _Rune) -> None:
+    if mixin_is_override(driver):
+        return mixin_call_override(driver)
     size = driver["size"]
     contents = driver["contents"]
     dirtyLines = driver["dirtyLines"]
@@ -357,10 +521,12 @@ def _driver_fill_rect(driver: _Driver, rectangle: Rectangle, rune: _Rune) -> Non
         for x in range(bounds.x, bounds.x + bounds.w):
             contents[y * size.w + x] = rune
         dirtyLines[y] = True
-def _driver_clear_content(driver: _Driver, x: int, y: int) -> None:
-    _driver_set_content(driver, x, y, _Rune_clear)
-def _driver_clear_contents(driver: _Driver) -> None:
-    _driver_fill_rect(driver, rectangle_from_point_size(EmptyPoint, driver["size"]), _Rune_clear)
+def _driver_clear_rect(driver: _Driver, rectangle: Rectangle = None) -> None:
+    if mixin_is_override(driver):
+        return mixin_call_override(driver)
+    if rectangle is None:
+        rectangle = rectangle_from_point_size(EmptyPoint, driver["size"])
+    _driver_fill_rect(driver, rectangle, _Rune_clear)
 def _driver_tick(driver: _Driver) -> None:
     if mixin_is_override(driver):
         return mixin_call_override(driver)
@@ -452,7 +618,7 @@ def _text_formatter_new(driver: _Driver) -> _TextFormatter:
     return dict(
         driver=driver,
         text="",
-        autoSize=True,
+        autoSize=False,
         size=Size(0, 0),
         multiline=True,
         wordwrap=True,
@@ -533,7 +699,7 @@ def _text_formatter_draw(textFormatter: _TextFormatter, screen: Rectangle) -> No
                 index += 1
             current -= 1
             position -= 1
-        if current == 0 and index < len(sizes):
+        if position == 0 and index < len(sizes):
             return index
         return None
     if _text_direction_is_horizontal(direction):
@@ -831,88 +997,609 @@ def _text_formatter_get_calculated_auto_size(textFormatter: _TextFormatter) -> S
         width += currentMaxWidth
     return Size(width, height)
 
-_LayoutStyle = Union[
+# I don't like how the original repository is handling positions and sizes.
+# The code uses ambiguous variable access in which may/may-not have side effects and thus even utterly-deranged person wouldn't event want to use it.
+# And since, it will take way longer to come up with different idea (in which much inspired with css way of handling), I decided
+# to continue in this manner. But please, my future self, cleanup this code (I do really hope I can reuse this in another project)
+# This is a lot of hack (and by a lot, I mean it), and not many of them even handle things correctly.
+# The code is also not really extensible.
+
+_Thickness = NamedTuple("Thickness", [
+    ("left", int),
+    ("top", int),
+    ("right", int),
+    ("bottom", int)
+])
+_EmptyThickness = _Thickness(0, 0, 0, 0)
+
+def _thickness_new(left: int, top: int, right: int, bottom: int) -> _Thickness:
+    return _Thickness(left, top, right, bottom)
+def _thickness_get_horizontal(thickness: _Thickness) -> int:
+    return thickness.left + thickness.right
+def _thickness_get_vertical(thickness: _Thickness) -> int:
+    return thickness.top + thickness.bottom
+def _thickness_compute_inside(thickness: _Thickness, outside: Rectangle) -> Rectangle:
+    x = outside.x + thickness.left
+    y = outside.y + thickness.top
+    width = max(0, outside.w - (thickness.left + thickness.right))
+    height = max(0, outside.h - (thickness.top + thickness.bottom))
+    return Rectangle(x, y, width, height)
+def _thickness_compute_outside(thickness: _Thickness, inside: Rectangle) -> Rectangle:
+    x = inside.x - thickness.left
+    y = inside.y - thickness.top
+    width = inside.w + (thickness.left + thickness.right)
+    height = inside.h + (thickness.top + thickness.bottom)
+    return Rectangle(x, y, width, height)
+def _thickness_draw(thickness: _Thickness, driver: _Driver, rectangle: Rectangle, rune: _Rune) -> None:
+    left = thickness.left
+    top = thickness.top
+    right = thickness.right
+    bottom = thickness.bottom
+    _driver_fill_rect(driver, rectangle_from_point_size(rectangle_get_point(rectangle), Size(min(rectangle.w, left), rectangle.h)), rune)
+    _driver_fill_rect(driver, rectangle_from_point_size(rectangle_get_point(rectangle), Size(rectangle.w, min(rectangle.h, top))), rune)
+    _driver_fill_rect(driver, rectangle_from_point_size(Point(rectangle.x + max(0, rectangle.w - right), rectangle.y), Size(min(rectangle.w, right), rectangle.h)), rune)
+    _driver_fill_rect(driver, rectangle_from_point_size(Point(rectangle.x, rectangle.y + max(0, rectangle.h - bottom)), Size(rectangle.w, min(rectangle.h, bottom))), rune)
+def _thickness_with_horizontal(thickness: _Thickness, value: int) -> _Thickness:
+    return _Thickness(value // 2, thickness.top, value // 2, thickness.bottom)
+def _thickness_with_vertical(thickness: _Thickness, value: int) -> _Thickness:
+    return _Thickness(thickness.left, value // 2, thickness.right, value // 2)
+def _thickness_eq(left: _Thickness, right: _Thickness) -> bool:
+    return left.left == right.left and left.top == right.top and left.right == right.right and left.bottom == right.bottom
+def _thickness_neq(left: _Thickness, right: _Thickness) -> bool:
+    return left.left != right.left or left.top != right.top or left.right != right.right or left.bottom != right.bottom
+def _thickness_add(left: _Thickness, right: _Thickness) -> _Thickness:
+    return _Thickness(left.left + right.left, left.top + right.top, left.right + right.right, left.bottom + right.bottom)
+def _thickness_sub(left: _Thickness, right: _Thickness) -> _Thickness:
+    return _Thickness(left.left - right.left, left.top - right.top, left.right - right.right, left.bottom - right.bottom)
+
+_Adornment = TypedDict("Adornment",
+    driver=_Driver,
+    frame=Rectangle,
+    thickness=_Thickness,
+    viewportPosition=Point, # Bounded by contentSize
+    viewportSize=Size, # Bounded by contentSize
+    superview="_View",
+    subviews=list["_View"],
+    recomputeViewportSize=bool,
+    recomputeLayout=bool,
+    recomputeDisplay=Rectangle,
+)
+
+def _adornment_new(driver: _Driver, superview: "_View", **kwargs) -> _Adornment:
+    return dict(
+        driver=driver,
+        frame=EmptyRectangle,
+        thickness=_EmptyThickness,
+        viewportPosition=EmptyPoint,
+        viewportSize=EmptySize,
+        superview=superview,
+        subviews=[],
+        recomputeViewportSize=True,
+        recomputeLayout=True,
+        recomputeDisplay=EmptyRectangle,
+        **mixin_new(kwargs)
+    )
+def _adornment_get_frame(adornment: _Adornment) -> Rectangle:
+    if mixin_is_override(adornment):
+        return mixin_call_override(adornment)
+    return adornment["frame"]
+def _adornment_get_thickness(adornment: _Adornment) -> _Thickness:
+    if mixin_is_override(adornment):
+        return mixin_call_override(adornment)
+    return adornment["thickness"]
+def _adornment_get_viewport_position(adornment: _Adornment) -> Point:
+    if mixin_is_override(adornment):
+        return mixin_call_override(adornment)
+    return adornment["viewportPosition"]
+def _adornment_get_viewport_size(adornment: _Adornment) -> Size:
+    if mixin_is_override(adornment):
+        return mixin_call_override(adornment)
+    if adornment["recomputeViewportSize"]:
+        _adornment_recompute_viewport_size(adornment)
+    return adornment["viewportSize"]
+def _adornment_set_frame(adornment: _Adornment, frame: Rectangle) -> None:
+    if mixin_is_override(adornment):
+        return mixin_call_override(adornment)
+    adornment["frame"] = frame
+    _adornment_mark_recompute_viewport_size(adornment)
+    _adornment_mark_recompute_layout(adornment)
+def _adornment_set_thickness(adornment: _Adornment, thickness: _Thickness) -> None:
+    if mixin_is_override(adornment):
+        return mixin_call_override(adornment)
+    adornment["thickness"] = thickness
+    _adornment_mark_recompute_viewport_size(adornment)
+    _adornment_mark_recompute_layout(adornment)
+    _view_mark_recompute_viewport_size(adornment["superview"])
+    _view_mark_recompute_layout(adornment["superview"])
+def _adornment_set_viewport_position(adornment: _Adornment, viewportPosition: Point) -> None:
+    if mixin_is_override(adornment):
+        return mixin_call_override(adornment)
+    adornment["viewportPosition"] = viewportPosition
+    _adornment_mark_recompute_display(adornment)
+def _adornment_set_viewport_size(adornment: _Adornment, viewportSize: Size) -> None:
+    if mixin_is_override(adornment):
+        return mixin_call_override(adornment)
+    frame = adornment["frame"]
+    thickness = adornment["thickness"]
+    horizontalThickness = _thickness_get_horizontal(thickness)
+    verticalThickness = _thickness_get_vertical(thickness)
+    newFrameSize = Size(viewportSize.w + horizontalThickness, viewportSize.h + verticalThickness)
+    newFrame = rectangle_from_point_size(rectangle_get_point(frame), newFrameSize)
+    _adornment_set_frame(newFrame)
+    adornment["viewportSize"] = viewportSize
+    adornment["recomputeViewportSize"] = False
+
+def _adornment_mark_recompute_viewport_size(adornment: _Adornment) -> None:
+    if mixin_is_override(adornment):
+        return mixin_call_override(adornment)
+    if adornment["recomputeViewportSize"]:
+        return
+    adornment["recomputeViewportSize"] = True
+    _adornment_mark_recompute_layout(adornment)
+def _adornment_recompute_viewport_size(adornment: _Adornment) -> None:
+    if mixin_is_override(adornment):
+        return mixin_call_override(adornment)
+    if not adornment["recomputeViewportSize"]:
+        return
+    adornment["recomputeViewportSize"] = False
+    frame = adornment["frame"]
+    thickness = adornment["thickness"]
+    horizontalThickness = _thickness_get_horizontal(thickness)
+    verticalThickness = _thickness_get_vertical(thickness)
+    adornment["viewportSize"] = Size(frame.w - horizontalThickness, frame.h - verticalThickness)
+
+def _adornment_mark_recompute_layout(adornment: _Adornment) -> None:
+    if mixin_is_override(adornment):
+        return mixin_call_override(adornment)
+    if adornment["recomputeLayout"]:
+        return
+    adornment["recomputeLayout"] = True
+    for subview in adornment["subviews"]:
+        _view_mark_recompute_layout(subview)
+def _adornment_recompute_layout(adornment: _Adornment) -> None:
+    if mixin_is_override(adornment):
+        return mixin_call_override(adornment)
+    if not adornment["recomputeLayout"]:
+        return
+    adornment["recomputeLayout"] = False
+    frame = adornment["frame"]
+    subviews = adornment["subviews"]
+    for subview in subviews:
+        _view_resolve_computed_layout(subview, frame)
+        _view_recompute_layout(subview)
+    # Check if layout needs to call _adornment_mark_recompute_display
+    pass
+
+def _adornment_mark_recompute_display(adornment: _Adornment, region: Rectangle = None) -> None:
+    if mixin_is_override(adornment):
+        return mixin_call_override(adornment)
+    if region is None:
+        region = adornment["frame"]
+    adornment["recomputeDisplay"] = rectangle_union(adornment["recomputeDisplay"], region)
+    for subview in adornment["subviews"]:
+        subviewFrame = subview["frame"]
+        intersection = rectangle_intersect(subviewFrame, region)
+        if intersection.w < 0 or intersection.h < 0:
+            continue
+        subviewRegion = Rectangle(
+            intersection.x - subviewFrame.x, 
+            intersection.y - subviewFrame.y, 
+            intersection.w, intersection.h
+        )
+        _view_mark_recompute_display(subview, subviewRegion)
+
+def _adornment_draw(adornment: _Adornment) -> None:
+    if mixin_is_override(adornment):
+        return mixin_call_override(adornment)
+    driver = adornment["driver"]
+    frame = adornment["frame"]
+    thickness = adornment["thickness"]
+    _thickness_draw(thickness, driver, frame, _Rune_clear)
+
+_Margin = type[_Adornment]
+
+def _margin_new(driver: _Driver, superview: "_View") -> _Margin:
+    return dict_with(
+        _adornment_new(
+            driver,
+            superview
+        )
+    )
+
+_Border = type[_Adornment]
+
+def _border_new(driver: _Driver, superview: "_View") -> _Border:
+    return dict_with(
+        _adornment_new(
+            driver,
+            superview,
+            _adornment_draw=_border_draw
+        )
+    )
+def _border_draw(border: _Border) -> None:
+    if mixin_is_override(border):
+        return mixin_call_override(border)
+    driver = border["driver"]
+    frame = border["frame"]
+    thickness = border["thickness"]
+    _thickness_draw(thickness, driver, frame, _Rune(".", _RuneAttribute_clear))
+
+_Padding = type[_Adornment]
+
+def _padding_new(driver: _Driver, superview: "_View") -> _Padding:
+    return dict_with(
+        _adornment_new(
+            driver,
+            superview
+        )
+    )
+
+_LayoutMode = Union[
     Literal["Absolute"],
     Literal["Computed"]
 ]
 
 _View = TypedDict("View",
+    driver=_Driver,
     x=_Pos,
     y=_Pos,
     width=_Dim,
     height=_Dim,
-    frame=Rectangle,
-    layoutStyle=_LayoutStyle,
-    autoSize=bool,
-    forceValidatePosDim=bool,
-    subviews=list["_View"]
+    margin=_Margin,
+    border=_Border,
+    padding=_Padding,
+    frame=Rectangle, # frame = contentSize + margin + border + padding
+    contentSize=Optional[Size],
+    viewportPosition=Point, # Bounded by contentSize
+    viewportSize=Size, # Bounded by contentSize
+    superview=Optional["_View"],
+    subviews=list["_View"],
+    textFormatter=_TextFormatter,
+    recomputeViewportSize=bool,
+    recomputeLayout=bool,
+    recomputeDisplay=Rectangle,
 )
 
+def _view_new(driver: _Driver, **kwargs) -> _View:
+    result = dict(
+        driver=driver,
+        x=_pos_from_absolute(0),
+        y=_pos_from_absolute(0),
+        width=_dim_from_absolute(0),
+        height=_dim_from_absolute(0),
+        margin=None,
+        border=None,
+        padding=None,
+        frame=EmptyRectangle,
+        contentSize=None,
+        viewportPosition=EmptyPoint,
+        viewportSize=EmptySize,
+        superview=None,
+        subviews=[],
+        textFormatter=_text_formatter_new(driver),
+        recomputeViewportSize=True,
+        recomputeLayout=True,
+        recomputeDisplay=EmptyRectangle,
+        **mixin_new(kwargs)
+    )
+    result["margin"] = _margin_new(driver, result)
+    result["border"] = _border_new(driver, result)
+    result["padding"] = _padding_new(driver, result)
+    return result
 def _view_get_x(view: _View) -> _Pos:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
     return view["x"]
 def _view_get_y(view: _View) -> _Pos:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
     return view["y"]
 def _view_get_width(view: _View) -> _Dim:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
     return view["width"]
 def _view_get_height(view: _View) -> _Dim:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
     return view["height"]
+def _view_get_margin(view: _View) -> _Margin:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    return view["margin"]
+def _view_get_border(view: _View) -> _Border:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    return view["border"]
+def _view_get_padding(view: _View) -> _Padding:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    return view["padding"]
 def _view_get_frame(view: _View) -> Rectangle:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
     return view["frame"]
-def _view_get_layout_style(view: _View) -> _LayoutStyle:
-    return view["layoutStyle"]
-def _view_get_auto_size(view: _View) -> bool:
-    return view["autoSize"]
-def _view_get_force_validate_pos_dim(view: _View) -> bool:
-    return view["forceValidatePosDim"]
-def _view_get_bounds(view: _View) -> Rectangle:
-    return rectangle_from_point_size(EmptyPoint, rectangle_get_size(_view_get_frame(view)))
+def _view_get_content_size(view: _View) -> Size:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    if view["contentSize"] is None:
+        return _view_get_viewport_size(view)
+    return view["contentSize"]
+def _view_get_viewport_position(view: _View) -> Point:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    return view["viewportPosition"]
+def _view_get_viewport_size(view: _View) -> Point:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    if view["recomputeViewportSize"]:
+        _view_recompute_viewport_size(view)
+    return view["viewportSize"]
+def _view_get_text_formatter(view: _View) -> _TextFormatter:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    return view["textFormatter"]
+def _view_get_layout_mode(view: _View) -> _LayoutMode:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    if _pos_as_absolute(view["x"]) is None or _pos_as_absolute(view["y"]) is None:
+        return "Computed"
+    if _dim_as_absolute(view["width"]) is None or _dim_as_absolute(view["height"]) is None:
+        return "Computed"
+    return "Absolute"
 def _view_set_x(view: _View, x: _Pos) -> None:
-    if view["forceValidatePosDim"] and not _view_validate_pos_dim(view, view["x"], x):
-        raise "ArgumentException"
+    if mixin_is_override(view):
+        return mixin_call_override(view)
     view["x"] = x
-    _view_recompute_resize(view)
+    _view_mark_recompute_layout(view)
+    _view_mark_recompute_display(view)
 def _view_set_y(view: _View, y: _Pos) -> None:
-    if view["forceValidatePosDim"] and not _view_validate_pos_dim(view, view["y"], y):
-        raise "ArgumentException"
+    if mixin_is_override(view):
+        return mixin_call_override(view)
     view["y"] = y
-    _view_recompute_resize(view)
+    _view_mark_recompute_layout(view)
+    _view_mark_recompute_display(view)
 def _view_set_width(view: _View, width: _Dim) -> None:
-    if view["forceValidatePosDim"] and not _view_validate_pos_dim(view, view["width"], width):
-        raise "ArgumentException"
+    if mixin_is_override(view):
+        return mixin_call_override(view)
     view["width"] = width
-    _view_recompute_resize(view)
+    _view_mark_recompute_layout(view)
+    _view_mark_recompute_display(view)
 def _view_set_height(view: _View, height: _Dim) -> None:
-    if view["forceValidatePosDim"] and not _view_validate_pos_dim(view, view["height"], height):
-        raise "ArgumentException"
+    if mixin_is_override(view):
+        return mixin_call_override(view)
     view["height"] = height
-    _view_recompute_resize(view)
+    _view_mark_recompute_layout(view)
+    _view_mark_recompute_display(view)
 def _view_set_frame(view: _View, frame: Rectangle) -> None:
+    # Side effect: layoutMode changes to "absolute"
+    if mixin_is_override(view):
+        return mixin_call_override(view)
     view["frame"] = frame
-    _view_recompute_layout(view)
-    _view_recompute_display(view)
-def _view_set_layout_style(view: _View, layoutStyle: _LayoutStyle) -> None:
-    view["layoutStyle"] = layoutStyle
-    _view_recompute_layout(view)
-def _view_set_auto_size(view: _View, autoSize: bool) -> None:
-    view["autoSize"] = autoSize
-    _view_recompute_resize(view)
-def _view_set_force_validate_pos_dim(view: _View, forceValidatePosDim: bool) -> None:
-    view["forceValidatePosDim"] = forceValidatePosDim
-def _view_set_bounds(view: _View, bounds: Rectangle) -> None:
-    _view_set_frame(view, rectangle_from_point_size(rectangle_get_point(_view_get_frame(view)), rectangle_get_size(bounds)))
+    view["x"] = _pos_from_absolute(frame.x)
+    view["y"] = _pos_from_absolute(frame.y)
+    view["width"] = _pos_from_absolute(frame.w)
+    view["height"] = _pos_from_absolute(frame.h)
+    _view_mark_recompute_viewport_size(view)
+    _view_mark_recompute_layout(view)
+    _view_mark_recompute_display(view)
+def _view_set_content_size(view: _View, contentSize: Size) -> None:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    view["contentSize"] = contentSize
+    _view_mark_recompute_layout(view)
+def _view_set_viewport_position(view: _View, viewportPosition: Point) -> None:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    view["viewportPosition"] = viewportPosition
+    _view_mark_recompute_display(view)
+def _view_set_viewport_size(view: _View, viewportSize: Size) -> None:
+    # Side effect: layoutMode changes to "absolute" (_view_set_frame)
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    frame = view["frame"]
+    margin = view["margin"]
+    border = view["border"]
+    padding = view["padding"]
+    _adornment_set_viewport_size(padding, viewportSize)
+    _adornment_set_viewport_size(border, rectangle_get_size(_adornment_get_frame(padding)))
+    _adornment_set_viewport_size(margin, rectangle_get_size(_adornment_get_frame(border)))
+    newFrameSize = rectangle_get_size(_adornment_get_frame(margin))
+    newFrame = rectangle_from_point_size(rectangle_get_point(frame), newFrameSize)
+    _view_set_frame(newFrame)
+    view["viewportSize"] = viewportSize
+    view["recomputeViewportSize"] = False
 
-def _view_validate_pos_dim(view: _View, oldValue: Any, newValue: Any) -> bool:
-    if view["layoutStyle"] == "Absolute":
-        return True
-    if _pos_as_absolute(newValue) is None and _dim_as_absolute(newValue) is None:
-        return True
-    return False
-def _view_recompute_resize(view: _View) -> None:
-    _view_recompute_layout()
-    _view_recompute_display()
+def _view_add_child(view: _View, subview: _View) -> None:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    subviewSuperview = subview["superview"]
+    if subviewSuperview is view:
+        return
+    if subviewSuperview is not None:
+        _view_remove_child(subviewSuperview, subview)
+    subview["superview"] = view
+    array_push(view["subviews"], subview)
+    _view_mark_recompute_layout(view)
+    _view_mark_recompute_display(view)
+def _view_remove_child(view: _View, subview: _View) -> None:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    subviewSuperview = subview["superview"]
+    if subviewSuperview is not view:
+        return
+    subviews = view["subviews"]
+    array_splice(subviews, array_index_of(subviews, subview), 1)
+    _view_mark_recompute_layout(view)
+    _view_mark_recompute_display(view)
+
+def _view_resolve_computed_layout(view: _View, superviewContentSize: Size) -> None:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    x = view["x"]
+    y = view["y"]
+    width = view["width"]
+    height = view["height"]
+    computedX = _pos_calculate(x, superviewContentSize.w, "Abscissa", width, view)
+    computedY = _pos_calculate(y, superviewContentSize.h, "Ordinate", height, view)
+    computedWidth = _dim_calculate(width, superviewContentSize.w, "Abscissa", computedX, view)
+    computedHeight = _dim_calculate(height, superviewContentSize.h, "Abscissa", computedY, view)
+    newFrame = Rectangle(computedX, computedY, computedWidth, computedHeight)
+    if rectangle_eq(view["frame"], newFrame):
+        return
+    view["frame"] = newFrame
+    _view_mark_recompute_layout(view)
+    _view_mark_recompute_display(view)
+    _view_mark_recompute_viewport_size(view)
+    _view_recompute_viewport_size(view)
+
+def _view_mark_recompute_viewport_size(view: _View) -> None:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    if view["recomputeViewportSize"]:
+        return
+    view["recomputeViewportSize"] = True
+    _view_mark_recompute_layout(view)
+def _view_recompute_viewport_size(view: _View) -> None:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    if not view["recomputeViewportSize"]:
+        return
+    view["recomputeViewportSize"] = False
+    frame = view["frame"]
+    margin = view["margin"]
+    border = view["border"]
+    padding = view["padding"]
+    marginFrame = frame
+    borderFrame = _thickness_compute_inside(_adornment_get_thickness(margin), marginFrame)
+    paddingFrame = _thickness_compute_inside(_adornment_get_thickness(border), borderFrame)
+    _adornment_set_frame(margin, marginFrame)
+    _adornment_set_frame(border, borderFrame)
+    _adornment_set_frame(padding, paddingFrame)
+    view["viewportSize"] = _adornment_get_viewport_size(border)
+
+def _view_mark_recompute_layout(view: _View) -> None:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    if view["recomputeLayout"]:
+        return
+    view["recomputeLayout"] = True
+    for subview in view["subviews"]:
+        _view_mark_recompute_layout(subview)
+    if view["superview"] is not None:
+        _view_mark_recompute_layout(view["superview"])
 def _view_recompute_layout(view: _View) -> None:
-    # TODO
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    if not view["recomputeLayout"]:
+        return
+    view["recomputeLayout"] = False
+    width = view["width"]
+    height = view["height"]
+    margin = view["margin"]
+    border = view["border"]
+    padding = view["padding"]
+    contentSize = _view_get_content_size(view)
+    subviews = view["subviews"]
+    def assertPosStatic(pos: _Pos) -> None:
+        if _pos_as_absolute(pos) is not None:
+            return
+        if _pos_as_combine(pos) is not None:
+            p: _PosCombine = pos
+            assertPosStatic(p["left"])
+            assertPosStatic(p["right"])
+            return
+        if _pos_as_view(pos) is not None:
+            return
+        raise "Pos is not static"
+    def assertDimStatic(dim: _Dim) -> None:
+        if _dim_as_absolute(dim) is not None:
+            return
+        if _dim_as_combine(dim) is not None:
+            d: _DimCombine = dim
+            assertDimStatic(d["left"])
+            assertDimStatic(d["right"])
+            return
+        if _dim_as_view(dim) is not None:
+            return
+        raise "Dim is not static"
+    if _dim_as_auto(width) is not None and width["min"] is None:
+        for subview in subviews:
+            assertPosStatic(subview["x"])
+            assertDimStatic(subview["width"])
+    if _dim_as_auto(height) is not None and height["min"] is None:
+        for subview in subviews:
+            assertPosStatic(subview["y"])
+            assertDimStatic(subview["height"])
+    _adornment_recompute_layout(margin)
+    _adornment_recompute_layout(border)
+    _adornment_recompute_layout(padding)
+    for subview in subviews:
+        _view_resolve_computed_layout(subview, contentSize)
+        _view_recompute_layout(subview)
     pass
-def _view_recompute_display(view: _View) -> None:
-    # TODO
-    pass
+
+def _view_mark_recompute_display(view: _View, region: Rectangle = None) -> None:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    if region is None:
+        region = view["frame"]
+    view["recomputeDisplay"] = rectangle_union(view["recomputeDisplay"], region)
+    _adornment_mark_recompute_display(view["margin"])
+    _adornment_mark_recompute_display(view["border"])
+    _adornment_mark_recompute_display(view["padding"])
+    for subview in view["subviews"]:
+        subviewFrame = subview["frame"]
+        intersection = rectangle_intersect(subviewFrame, region)
+        if intersection.w < 0 or intersection.h < 0:
+            continue
+        subviewRegion = Rectangle(
+            intersection.x - subviewFrame.x, 
+            intersection.y - subviewFrame.y, 
+            intersection.w, intersection.h
+        )
+        _view_mark_recompute_display(subview, subviewRegion)
+
+# def _view_recompute_resize(view: _View) -> None:
+#     if mixin_is_override(view):
+#         return mixin_call_override(view)
+#     _view_recompute_layout()
+#     _view_recompute_display()
+
+def _view_transform_frame_to_screen(view: _View) -> Point:
+    result = rectangle_get_point(view["frame"])
+    current = view["superview"]
+    while current is not None:
+        currentFrame = current["frame"]
+        currentViewportPosition = current["viewportPosition"]
+        currentPadding = current["padding"]
+        currentPaddingThickness = _adornment_get_thickness(currentPadding)
+        currentViewportOffset = _thickness_compute_inside(currentPaddingThickness, _adornment_get_frame(currentPadding))
+        result = Point(result.x + currentViewportOffset.x + currentFrame.x - currentViewportPosition.x, result.y + currentViewportOffset.y + currentFrame.y - currentViewportPosition.y)
+        current = current["superview"]
+    return result
+def _view_transform_viewport_to_screen(view: _View, point: Point) -> Point:
+    screen = _view_transform_frame_to_screen(view)
+    padding = view["padding"]
+    paddingThickness = _adornment_get_thickness(padding)
+    viewportOffset = _thickness_compute_inside(paddingThickness, _adornment_get_frame(padding))
+    return Point(screen.x + viewportOffset.x + point.x, screen.y + viewportOffset.y + point.y)
+def _view_transform_content_to_screen(view: _View, point: Point) -> Point:
+    viewport = view["viewportPosition"]
+    return _view_transform_viewport_to_screen(view, Point(point.x - viewport.x, point.y - viewport.y))
+
+def _view_draw(view: _View) -> None:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    margin = view["margin"]
+    border = view["border"]
+    padding = view["padding"]
+    subviews = view["subviews"]
+    textFormatter = view["textFormatter"]
+    _adornment_draw(margin)
+    _adornment_draw(border)
+    _adornment_draw(padding)
+    paddingInside = _thickness_compute_inside(_adornment_get_thickness(padding), _adornment_get_frame(padding))
+    _text_formatter_set_size(textFormatter, rectangle_get_size(paddingInside))
+    _text_formatter_draw(textFormatter, paddingInside)
+    for subview in subviews:
+        _view_draw(subview)
