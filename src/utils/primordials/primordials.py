@@ -1,7 +1,7 @@
 from typing import Any, TypeVar, Callable, Union, NamedTuple, Type
 
-_T = TypeVar("_T")
-_U = TypeVar("_U")
+__T = TypeVar("__T")
+__U = TypeVar("__U")
 
 # Primordials Functions
 # All of these functions has no side effects and are the base construct of a programming language.
@@ -202,23 +202,23 @@ def _string_split(string: str, separator: str) -> list[str]:
 # Based on javascript's standard array operations. Implemented manually.
 # https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array
 
-def _array_push(array: list[_T], *elements: _T) -> int:
+def _array_push(array: list[__T], *elements: __T) -> int:
     for element in elements:
         array.append(element)
     return len(array)
 
-def _array_pop(array: list[_T]) -> _T:
+def _array_pop(array: list[__T]) -> __T:
     if len(array) == 0:
         return None
     return array.pop()
 
-def _array_unshift(array: list[_T], *elements: _T) -> int:
+def _array_unshift(array: list[__T], *elements: __T) -> int:
     _array_reverse(elements)
     for element in elements:
         array.insert(0, element)
     return len(array)
 
-def _array_shift(array: list[_T]) -> _T:
+def _array_shift(array: list[__T]) -> __T:
     if len(array) == 0:
         return None
     return array.pop(0)
@@ -229,106 +229,107 @@ def _array_concat(*arrays: list[Any]) -> list[Any]:
         result += array
     return result
 
-def _array_slice(array: list[_T], start: int = None, end: int = None) -> list[_T]:
+def _array_slice(array: list[__T], start: int = None, end: int = None) -> list[__T]:
     if start is None:
         start = 0
     if end is None:
         end = len(array)
     return array[start:end]
 
-def _array_splice(array: list[_T], start: int, deleteCount: int = None, *elements: _T) -> list[_T]:
+def _array_splice(array: list[__T], start: int, deleteCount: int = None, *elements: __T) -> list[__T]:
     if deleteCount is None:
         deleteCount = len(array) - start
-    deleted: list[_T] = []
+    deleted: list[__T] = []
     while deleteCount > 0:
         if start >= len(array):
             break
         deleted.append(array.pop(start))
+        deleteCount -= 1
     _array_reverse(elements)
     for element in elements:
         array.insert(start, element)
     return deleted
 
-def _array_copy_within(array: list[_T], target: int, start: int, end: int = None) -> list[_T]:
+def _array_copy_within(array: list[__T], target: int, start: int, end: int = None) -> list[__T]:
     if end is None:
         end = len(array)
     for i in range(start, end):
         array[target + i - start] = array[i]
     return array
 
-def _array_every(array: list[_T], callback: Callable[[_T, int, list[_T]], bool]) -> bool:
+def _array_every(array: list[__T], callback: Callable[[__T, int, list[__T]], bool]) -> bool:
     for i in range(0, len(array)):
         if callback(array[i], i, array):
             continue
         return False
     return True
 
-def _array_some(array: list[_T], callback: Callable[[_T, int, list[_T]], bool]) -> bool:
+def _array_some(array: list[__T], callback: Callable[[__T, int, list[__T]], bool]) -> bool:
     for i in range(0, len(array)):
         if not callback(array[i], i, array):
             continue
         return True
     return False
 
-def _array_index_of(array: list[_T], element: _T) -> int:
+def _array_index_of(array: list[__T], element: __T) -> int:
     for i in range(0, len(array)):
         if array[i] != element:
             continue
         return i
     return -1
 
-def _array_last_index_of(array: list[_T], element: _T) -> int:
+def _array_last_index_of(array: list[__T], element: __T) -> int:
     for i in range(len(array) - 1, -1, -1):
         if array[i] != element:
             continue
         return i
     return -1
 
-def _array_includes(array: list[_T], element: _T) -> bool:
+def _array_includes(array: list[__T], element: __T) -> bool:
     return _array_index_of(array, element) >= 0
 
-def _array_find(array: list[_T], callback: Callable[[_T, int, list[_T]], bool]) -> _T:
+def _array_find(array: list[__T], callback: Callable[[__T, int, list[__T]], bool]) -> __T:
     for i in range(0, len(array)):
         if not callback(array[i], i, array):
             continue
         return array[i]
     return None
 
-def _array_find_index(array: list[_T], callback: Callable[[_T, int, list[_T]], bool]) -> int:
+def _array_find_index(array: list[__T], callback: Callable[[__T, int, list[__T]], bool]) -> int:
     for i in range(0, len(array)):
         if not callback(array[i], i, array):
             continue
         return i
     return -1
 
-def _array_find_last(array: list[_T], callback: Callable[[_T, int, list[_T]], bool]) -> _T:
+def _array_find_last(array: list[__T], callback: Callable[[__T, int, list[__T]], bool]) -> __T:
     for i in range(len(array) - 1, -1, -1):
         if not callback(array[i], i, array):
             continue
         return array[i]
     return None
 
-def _array_find_last_index(array: list[_T], callback: Callable[[_T, int, list[_T]], bool]) -> int:
+def _array_find_last_index(array: list[__T], callback: Callable[[__T, int, list[__T]], bool]) -> int:
     for i in range(len(array) - 1, -1, -1):
         if not callback(array[i], i, array):
             continue
         return i
     return -1
 
-def _array_for_each(array: list[_T], callback: Callable[[_T, int, list[_T]], Any]) -> None:
+def _array_for_each(array: list[__T], callback: Callable[[__T, int, list[__T]], Any]) -> None:
     for i in range(0, len(array)):
         callback(array[i], i, array)
 
-def _array_filter(array: list[_T], callback: Callable[[_T, int, list[_T]], bool]) -> list[_T]:
-    result: list[_T] = []
+def _array_filter(array: list[__T], callback: Callable[[__T, int, list[__T]], bool]) -> list[__T]:
+    result: list[__T] = []
     for i in range(0, len(array)):
         if not callback(array[i], i, array):
             continue
         result.append(array[i])
     return result
 
-def _array_map(array: list[_T], callback: Callable[[_T, int, list[_T]], _U]) -> list[_U]:
-    result: list[_U] = []
+def _array_map(array: list[__T], callback: Callable[[__T, int, list[__T]], __U]) -> list[__U]:
+    result: list[__U] = []
     for i in range(0, len(array)):
         result.append(callback(array[i], i, array))
     return result
@@ -341,7 +342,7 @@ def _array_flat(array: list[Any], depth: int = 1, result: list[Any] = []) -> lis
         _array_flat(array[i], depth - 1, result)
     return result
 
-def _array_flat_map(array: list[_T], callback: Callable[[_T, int, list[_T]], _U]) -> list[Any]:
+def _array_flat_map(array: list[__T], callback: Callable[[__T, int, list[__T]], __U]) -> list[Any]:
     return _array_flat(_array_map(array, callback))
 
 def _array_join(array: list[Any], separator: str = ",") -> str:
@@ -353,26 +354,26 @@ def _array_join(array: list[Any], separator: str = ",") -> str:
             result += separator
     return result
 
-def _array_reduce(array: list[_T], callback: Callable[[_U, _T, int, list[_T]], _U], initial: _U) -> _U:
+def _array_reduce(array: list[__T], callback: Callable[[__U, __T, int, list[__T]], __U], initial: __U) -> __U:
     accumulator = initial
     for i in range(0, len(array)):
         accumulator = callback(accumulator, array[i], i, array)
     return accumulator
 
-def _array_reduce_right(array: list[_T], callback: Callable[[_U, _T, int, list[_T]], _U], initial: _U) -> _U:
+def _array_reduce_right(array: list[__T], callback: Callable[[__U, __T, int, list[__T]], __U], initial: __U) -> __U:
     accumulator = initial
     for i in range(len(array) - 1, -1, -1):
         accumulator = callback(accumulator, array[i], i, array)
     return accumulator
 
-def _array_reverse(array: list[_T]) -> None:
+def _array_reverse(array: list[__T]) -> None:
     arrayLength = len(array)
     for i in range(0, arrayLength // 2):
         temp = array[i]
         array[i] = array[arrayLength - i - 1]
         array[arrayLength - i - 1] = temp
 
-def _array_sort(array: list[_T], comparator: Callable[[_T, _T], int] = lambda x, y: x - y) -> list[_T]:
+def _array_sort(array: list[__T], comparator: Callable[[__T, __T], int] = lambda x, y: x - y) -> list[__T]:
     arrayLength = len(array)
     for i in range(1, arrayLength):
         temp = array[i]
@@ -383,52 +384,61 @@ def _array_sort(array: list[_T], comparator: Callable[[_T, _T], int] = lambda x,
         array[j] = temp
     return array
 
-def _array_to_reversed(array: list[_T]) -> list[_T]:
+def _array_to_reversed(array: list[__T]) -> list[__T]:
     array = _array_slice(array)
     _array_reverse(array)
     return array
 
-def _array_to_sorted(array: list[_T], comparator: Callable[[_T, _T], int] = lambda x, y: x - y) -> list[_T]:
+def _array_to_sorted(array: list[__T], comparator: Callable[[__T, __T], int] = lambda x, y: x - y) -> list[__T]:
     array = _array_slice(array)
     _array_sort(array, comparator)
     return array
 
-def _array_to_spliced(array: list[_T], start: int, deleteCount: int, *elements: _T) -> list[_T]:
+def _array_to_spliced(array: list[__T], start: int, deleteCount: int, *elements: __T) -> list[__T]:
     array = _array_slice(array)
     _array_splice(array, start, deleteCount, *elements)
     return array
 
-def _array_with(array: list[_T], index: int, value: _T) -> list[_T]:
+def _array_with(array: list[__T], index: int, value: __T) -> list[__T]:
     array = _array_slice(array)
     array[index] = value
     return array
 
 # Tuple/NamedTuple/Dict primordials
 
-_Tuple = TypeVar("_Tuple", covariant=tuple)
-_NamedTuple = TypeVar("_NamedTuple", covariant=NamedTuple)
-_Dict = TypeVar("_Dict", covariant=dict)
+__Tuple = TypeVar("__Tuple", covariant=tuple)
+__NamedTuple = TypeVar("__NamedTuple", covariant=NamedTuple)
+__Dict = TypeVar("__Dict", covariant=dict)
 
-def _tuple_with(tuple: _Tuple, **elements: Any) -> _Tuple:
-    result = []
+def _tuple_to_array(tuple: __Tuple) -> list[Any]:
+    result = [None for _ in range(len(tuple))]
     for i in range(len(tuple)):
         result[i] = tuple[i]
+    return result
+
+def _tuple_with(tuple: __Tuple, **elements: Any) -> __Tuple:
+    result = _tuple_to_array(tuple)
     for key, value in elements.items():
         if not _string_starts_with(key, "_"):
             continue
         result[int(_string_slice(key, 1))] = value
     return (*result,)
 
-def _namedtuple_with(tuple: _NamedTuple, **elements: Any) -> _NamedTuple:
+def _namedtuple_to_dict(tuple: __NamedTuple) -> dict:
     tupleType: Type[NamedTuple] = type(tuple)
     result = dict()
     for key in tupleType._fields:
         result[key] = getattr(tuple, key)
+    return result
+
+def _namedtuple_with(tuple: __NamedTuple, **elements: Any) -> __NamedTuple:
+    tupleType: Type[NamedTuple] = type(tuple)
+    result = _namedtuple_to_dict(tuple)
     for key, value in elements.items():
         result[key] = value
     return tupleType(**result)
 
-def _dict_with(dictionary: _Dict, **elements: Any) -> _Dict:
+def _dict_with(dictionary: __Dict, **elements: Any) -> __Dict:
     result = dict()
     for key, value in dictionary.items():
         result[key] = value
@@ -436,7 +446,7 @@ def _dict_with(dictionary: _Dict, **elements: Any) -> _Dict:
         result[key] = value
     return result
 
-def _dict_key_of(dictionary: _Dict, element: Any) -> Any:
+def _dict_key_of(dictionary: __Dict, element: Any) -> Any:
     for key, value in dictionary.items():
         if value != element:
             continue

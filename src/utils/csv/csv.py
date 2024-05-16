@@ -1,10 +1,10 @@
 from utils.primordials import *
 
-def get_arr(handle: str) -> list[list[str]]:
+def __get_arr(handle: str) -> list[list[str]]:
     # membuat array of array dari file csv
     res = []
     
-    with open(handle) as f:
+    with open(handle, encoding="utf-8") as f:
         lines = string_split(f.read(), "\n")
         for line in lines:
             line = string_trim(line)
@@ -15,7 +15,7 @@ def get_arr(handle: str) -> list[list[str]]:
     return res
 
 def _csv_read_from_file(handle: str) -> list[list[str]]:
-    return array_slice(get_arr(handle), 0, -1)
+    return array_slice(__get_arr(handle), 0, -1)
 
 def _csv_write_to_file(handle: str, data: list[list[str]]) -> None:
     with open(handle) as f:
