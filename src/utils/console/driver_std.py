@@ -25,11 +25,11 @@ def _driverstd_new() -> _DriverStd:
         lastLine=-1,
         lastAttribute=None
     )
-    _driver_set_size(result, get_terminal_size())
+    _driver_set_size(result, __get_terminal_size())
     return result
 
 def _driverstd_tick(driverstd: _DriverStd) -> None:
-    newSize = get_terminal_size()
+    newSize = __get_terminal_size()
     if driverstd["size"] != newSize:
         _driver_set_size(driverstd, newSize)
     pass
@@ -87,6 +87,6 @@ def _driverstd_set_current_attribute(driverstd: _DriverStd, attribute: _RuneAttr
     sys.stdout.write(command)
     driverstd["lastAttribute"] = attribute
 
-def get_terminal_size() -> Size:
+def __get_terminal_size() -> Size:
     value = os.get_terminal_size()
     return Size(value[0], value[1])

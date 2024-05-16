@@ -123,7 +123,7 @@ def _pos_absolute_anchor(pos: _PosAbsolute, scalar: float) -> float:
 def _pos_factor_anchor(pos: _PosFactor, scalar: float) -> float:
     return int(pos["factor"] * scalar)
 def _pos_center_anchor(pos: _PosCenter, scalar: float) -> float:
-    return scalar / 2
+    return int(scalar / 2)
 def _pos_end_anchor(pos: _PosEnd, scalar: float) -> float:
     return scalar - pos["offset"]
 def _pos_combine_anchor(pos: _PosCombine, scalar: float) -> float:
@@ -166,8 +166,8 @@ def _pos_absolute_calculate(pos: _PosAbsolute, scalar: float, direction: _Direct
 def _pos_factor_calculate(pos: _PosFactor, scalar: float, direction: _Direction, dim: "_Dim", view: "_View") -> float:
     return _pos_factor_anchor(pos, scalar)
 def _pos_center_calculate(pos: _PosCenter, scalar: float, direction: _Direction, dim: "_Dim", view: "_View") -> float:
-    result = max(0, _dim_calculate(dim, scalar, direction, view))
-    result = _pos_center_anchor(scalar - result)
+    result = max(0, _dim_calculate(dim, scalar, direction, pos, view))
+    result = _pos_center_anchor(pos, scalar - result)
     return result
 def _pos_end_calculate(pos: _PosEnd, scalar: float, direction: _Direction, dim: "_Dim", view: "_View") -> float:
     offset = pos["offset"]
@@ -617,7 +617,7 @@ _TextFormatter = TypedDict("TextFormatter",
 def _text_formatter_new(driver: _Driver) -> _TextFormatter:
     return dict(
         driver=driver,
-        text="",
+        text=[],
         autoSize=False,
         size=Size(0, 0),
         multiline=True,
@@ -703,7 +703,7 @@ def _text_formatter_draw(textFormatter: _TextFormatter, screen: Rectangle) -> No
             return index
         return None
     if _text_direction_is_horizontal(direction):
-        lineSizes = array_map(lines, lambda l, *_: array_reduce(l, lambda c, r, *_: max(c, _driver_get_rune_height(driver, r, direction)), 0))
+        lineSizes = array_map(lines, lambda l, *_: array_reduce(l, lambda c, r, *_: max(c, _driver_get_rune_height(driver, r, direction)), 1))
         lineTotalSize = array_reduce(lineSizes, lambda c, s, *_: c + s, 0)
         startY = 0
         if verticalAlignment == "Top" or verticalAlignment == "Justified":
@@ -749,7 +749,7 @@ def _text_formatter_draw(textFormatter: _TextFormatter, screen: Rectangle) -> No
                 rune = text[runeIndex]
                 _driver_set_content(driver, x, y, rune)
     if _text_direction_is_vertical(direction):
-        lineSizes = array_map(lines, lambda l, *_: array_reduce(l, lambda c, r, *_: max(c, _driver_get_rune_width(driver, r, direction)), 0))
+        lineSizes = array_map(lines, lambda l, *_: array_reduce(l, lambda c, r, *_: max(c, _driver_get_rune_width(driver, r, direction)), 1))
         lineTotalSize = array_reduce(lineSizes, lambda c, s, *_: c + s, 0)
         startX = 0
         if horizontalAlignment == "Left" or horizontalAlignment == "Justified":
@@ -1188,13 +1188,14 @@ def _adornment_mark_recompute_display(adornment: _Adornment, region: Rectangle =
         )
         _view_mark_recompute_display(subview, subviewRegion)
 
-def _adornment_draw(adornment: _Adornment) -> None:
+def _adornment_draw(adornment: _Adornment, point: Point) -> None:
     if mixin_is_override(adornment):
-        return mixin_call_override(adornment)
+        return mixin_call_override(adornment, point)
     driver = adornment["driver"]
     frame = adornment["frame"]
     thickness = adornment["thickness"]
-    _thickness_draw(thickness, driver, frame, _Rune_clear)
+    newPoint = Point(point.x + frame.x, point.y + frame.y)
+    _thickness_draw(thickness, driver, rectangle_from_point_size(newPoint, rectangle_get_size(frame)), _Rune_clear)
 
 _Margin = type[_Adornment]
 
@@ -1216,13 +1217,14 @@ def _border_new(driver: _Driver, superview: "_View") -> _Border:
             _adornment_draw=_border_draw
         )
     )
-def _border_draw(border: _Border) -> None:
+def _border_draw(border: _Border, point: Point) -> None:
     if mixin_is_override(border):
         return mixin_call_override(border)
     driver = border["driver"]
     frame = border["frame"]
     thickness = border["thickness"]
-    _thickness_draw(thickness, driver, frame, _Rune(".", _RuneAttribute_clear))
+    newPoint = Point(point.x + frame.x, point.y + frame.y)
+    _thickness_draw(thickness, driver, rectangle_from_point_size(newPoint, rectangle_get_size(frame)), _Rune(".", _RuneAttribute_clear))
 
 _Padding = type[_Adornment]
 
@@ -1447,10 +1449,10 @@ def _view_resolve_computed_layout(view: _View, superviewContentSize: Size) -> No
     if rectangle_eq(view["frame"], newFrame):
         return
     view["frame"] = newFrame
-    _view_mark_recompute_layout(view)
-    _view_mark_recompute_display(view)
     _view_mark_recompute_viewport_size(view)
     _view_recompute_viewport_size(view)
+    _view_mark_recompute_layout(view)
+    _view_mark_recompute_display(view)
 
 def _view_mark_recompute_viewport_size(view: _View) -> None:
     if mixin_is_override(view):
@@ -1469,13 +1471,13 @@ def _view_recompute_viewport_size(view: _View) -> None:
     margin = view["margin"]
     border = view["border"]
     padding = view["padding"]
-    marginFrame = frame
+    marginFrame = rectangle_from_point_size(EmptyPoint, rectangle_get_size(frame))
     borderFrame = _thickness_compute_inside(_adornment_get_thickness(margin), marginFrame)
     paddingFrame = _thickness_compute_inside(_adornment_get_thickness(border), borderFrame)
     _adornment_set_frame(margin, marginFrame)
     _adornment_set_frame(border, borderFrame)
     _adornment_set_frame(padding, paddingFrame)
-    view["viewportSize"] = _adornment_get_viewport_size(border)
+    view["viewportSize"] = _adornment_get_viewport_size(padding)
 
 def _view_mark_recompute_layout(view: _View) -> None:
     if mixin_is_override(view):
@@ -1572,16 +1574,14 @@ def _view_transform_frame_to_screen(view: _View) -> Point:
         currentFrame = current["frame"]
         currentViewportPosition = current["viewportPosition"]
         currentPadding = current["padding"]
-        currentPaddingThickness = _adornment_get_thickness(currentPadding)
-        currentViewportOffset = _thickness_compute_inside(currentPaddingThickness, _adornment_get_frame(currentPadding))
+        currentViewportOffset = _thickness_compute_inside(_adornment_get_thickness(currentPadding), _adornment_get_frame(currentPadding))
         result = Point(result.x + currentViewportOffset.x + currentFrame.x - currentViewportPosition.x, result.y + currentViewportOffset.y + currentFrame.y - currentViewportPosition.y)
         current = current["superview"]
     return result
 def _view_transform_viewport_to_screen(view: _View, point: Point) -> Point:
     screen = _view_transform_frame_to_screen(view)
     padding = view["padding"]
-    paddingThickness = _adornment_get_thickness(padding)
-    viewportOffset = _thickness_compute_inside(paddingThickness, _adornment_get_frame(padding))
+    viewportOffset = _thickness_compute_inside(_adornment_get_thickness(padding), _adornment_get_frame(padding))
     return Point(screen.x + viewportOffset.x + point.x, screen.y + viewportOffset.y + point.y)
 def _view_transform_content_to_screen(view: _View, point: Point) -> Point:
     viewport = view["viewportPosition"]
@@ -1590,16 +1590,27 @@ def _view_transform_content_to_screen(view: _View, point: Point) -> Point:
 def _view_draw(view: _View) -> None:
     if mixin_is_override(view):
         return mixin_call_override(view)
+    driver = view["driver"]
     margin = view["margin"]
     border = view["border"]
     padding = view["padding"]
     subviews = view["subviews"]
     textFormatter = view["textFormatter"]
-    _adornment_draw(margin)
-    _adornment_draw(border)
-    _adornment_draw(padding)
+    
+    _view_recompute_viewport_size(view)
+    screen = _view_transform_content_to_screen(view, EmptyPoint)
     paddingInside = _thickness_compute_inside(_adornment_get_thickness(padding), _adornment_get_frame(padding))
-    _text_formatter_set_size(textFormatter, rectangle_get_size(paddingInside))
-    _text_formatter_draw(textFormatter, paddingInside)
+    newPoint = Point(screen.x + paddingInside.x, screen.y + paddingInside.y)
+    inner = rectangle_from_point_size(newPoint, rectangle_get_size(paddingInside))
+    _driver_clear_rect(driver, inner)
+    
+    adornmentScreen = _view_transform_frame_to_screen(view)
+    _adornment_draw(margin, adornmentScreen)
+    _adornment_draw(border, adornmentScreen)
+    _adornment_draw(padding, adornmentScreen)
+    
+    _text_formatter_set_size(textFormatter, rectangle_get_size(inner))
+    _text_formatter_draw(textFormatter, inner)
+    
     for subview in subviews:
         _view_draw(subview)
