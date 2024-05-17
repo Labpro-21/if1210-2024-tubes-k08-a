@@ -1,5 +1,6 @@
 from game.state import *
 from game.database import *
+from typing import Optional
 
 # Do NOT expose this function in __init__.py. See note in __init__.py
 def _user_hash_password(password: str) -> str:
@@ -8,7 +9,14 @@ def _user_hash_password(password: str) -> str:
 def _user_is_logged_in(gameState: GameState) -> bool:
     return gamestate_get_user_id(gameState) is not None
 
-def _user_register(gameState: GameState) -> None:
+def _user_get_current(gameState: GameState) -> Optional[UserSchemaType]:
+    userId = gamestate_get_user_id(gameState)
+    if userId is None:
+        return None
+    user_database = gamestate_get_user_database(gameState)
+    return database_get_entry_at(user_database, userId)
+
+def _user_register(gameState: GameState, new_username: str, new_password: str) -> None:
     '''
     Prosedur untuk register user baru
     '''
@@ -20,7 +28,7 @@ def _user_register(gameState: GameState) -> None:
         return
     
     # input username baru
-    new_username: str = input("Masukan username: ")
+    # new_username: str = input("Masukan username: ")
         
     # mengecek apakah karakter dalam username valid
     user_false_input: bool = True
@@ -47,7 +55,7 @@ def _user_register(gameState: GameState) -> None:
                 return
 
     # input password
-    new_password: str = input("Masukan password: ")
+    # new_password: str = input("Masukan password: ")
     
     # input pilihan monster starter
     monster_false: bool = True
@@ -87,9 +95,10 @@ Input angka saja, contoh: input '1' untuk memilih Monster1
                                          password = new_password,
                                          role = "agent",
                                          money = 0))
+    gamestate_set_user_id(gameState, new_id)
     return
 
-def _user_login(gameState: GameState) -> None:
+def _user_login(gameState: GameState, username: str, password: str) -> None:
     '''
     Prosedur untuk login user
     '''
@@ -101,7 +110,7 @@ def _user_login(gameState: GameState) -> None:
         return
     
     # input username
-    username: str = input("Masukan username: ")
+    # username: str = input("Masukan username: ")
     
     # mencari apakah user ada
     user_DNE = True 
@@ -118,7 +127,7 @@ def _user_login(gameState: GameState) -> None:
         return
     
     # input password
-    password: str = input("Masukan password: ")
+    # password: str = input("Masukan password: ")
     
     # mengecek password benar atau tidak
     if password != user_entries[user_index].password: # salah
@@ -138,8 +147,8 @@ def _user_logout(gameState: GameState) -> None:
     Prosedur untuk logout user
     '''
     # mengecek apakah user sedang login atau tidak
-    if gamestate_get_user_id(gameState) == None:
-        print("Anda belum login, logoin dulu untuk logout!")
+    if gamestate_get_user_id(gameState) is None:
+        print("Anda belum login, login dulu untuk logout!")
         return
     else:
         gamestate_set_user_id(gameState, None)
