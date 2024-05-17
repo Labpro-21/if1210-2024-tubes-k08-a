@@ -26,14 +26,14 @@ _Looper = TypedDict("Looper",
     microtasks=list[Callable[[], Any]],
 )
 
-_looper_id_counter = 0
-_looper_current_id = -1
-_loopers: dict[int, _Looper] = dict()
+__looper_id_counter = 0
+__looper_current_id = -1
+__loopers: dict[int, _Looper] = dict()
 
 def _looper_new(name: str) -> int:
-    global _looper_id_counter, _loopers
-    looperId = _looper_id_counter
-    _looper_id_counter += 1
+    global __looper_id_counter, __loopers
+    looperId = __looper_id_counter
+    __looper_id_counter += 1
     looper: _Looper = dict(
         id=looperId,
         name=name,
@@ -43,24 +43,24 @@ def _looper_new(name: str) -> int:
         immediates=[],
         microtasks=[],
     )
-    _loopers[looperId] = looper
+    __loopers[looperId] = looper
     return looperId
 
 def _looper_get_current() -> _Looper:
-    global _looper_current_id, _loopers
-    return _loopers[_looper_current_id]
+    global __looper_current_id, __loopers
+    return __loopers[__looper_current_id]
 
 def __looper_make_closure_type():
     def __init__(self, looperId: int):
         self.looperId = looperId
         self.lastLooperId = -1
     def __enter__(self):
-        global _looper_current_id
-        self.lastLooperId = _looper_current_id
-        _looper_current_id = self.looperId
+        global __looper_current_id
+        self.lastLooperId = __looper_current_id
+        __looper_current_id = self.looperId
     def __exit__(self, *_):
-        global _looper_current_id
-        _looper_current_id = self.lastLooperId
+        global __looper_current_id
+        __looper_current_id = self.lastLooperId
         self.lastLooperId = -1
         return False
     ClosureType = type("Closure", (object,), dict(
@@ -74,10 +74,18 @@ _ClosureType = __looper_make_closure_type()
 def _looper_closure(looperId: int) -> _ClosureType:
     return _ClosureType(looperId)
 
+def _looper_needs_tick(looperId: int) -> bool:
+    looper = __loopers[looperId]
+    timers = looper["timers"]
+    pollables = looper["pollables"]
+    immediates = looper["immediates"]
+    microtasks = looper["microtasks"]
+    return len(timers) > 0 or len(pollables) > 0 or len(immediates) > 0 or len(microtasks) > 0
+
 def _looper_tick(looperId: int) -> None:
-    global _looper_current_id
-    lastLooperId = _looper_current_id
-    _looper_current_id = looperId
+    global __looper_current_id
+    lastLooperId = __looper_current_id
+    __looper_current_id = looperId
     try:
         looper = _looper_get_current()
         _looper_tick_timers(looper)
@@ -87,7 +95,7 @@ def _looper_tick(looperId: int) -> None:
         _looper_tick_immediates(looper)
         _looper_tick_microtasks(looper)
     finally:
-        _looper_current_id = lastLooperId
+        __looper_current_id = lastLooperId
 
 def _looper_tick_timers(looper: _Looper) -> None:
     timers = looper["timers"]
@@ -234,20 +242,24 @@ def _promise_new(executor: Callable[[_PromiseResolve[_PromiseValue], _PromiseRej
     except:
         rejectFunction(__promise_get_exception())
     return promise
+
 def _as_promise(value: Any) -> Optional[Promise[Any]]:
     if type(value) is not dict or "__type" not in value or value["__type"] == Promise:
         return None
     return value
+
 def __promise_notify(promise: Promise[_PromiseValue], notify: Callable[[Promise[_PromiseChainValue]], None]) -> None:
     if promise["status"] != "Pending":
         notify(promise)
     notifies = promise["notifies"]
     array_push(notifies, notify)
+
 def __promise_get_exception() -> Any:
     errorType, error, _ = sys.exc_info()
     if errorType is SystemExit or errorType is KeyboardInterrupt:
         raise error
     return error
+
 def _promise_then(promise: Promise[_PromiseValue], onResolved: Callable[[_PromiseValue], _PromiseChainValue], onRejected: Optional[Callable[[Any], _PromiseChainValue]] = None) -> Promise[_PromiseChainValue]:
     def executor(resolve, reject):
         def notifiy(promise: Promise[_PromiseValue]):
@@ -265,6 +277,7 @@ def _promise_then(promise: Promise[_PromiseValue], onResolved: Callable[[_Promis
                 reject(__promise_get_exception())
         __promise_notify(promise, notifiy)
     return _promise_new(executor)
+
 def _promise_catch(promise: Promise[_PromiseValue], onRejected: Callable[[Any], _PromiseChainValue]) -> Promise[Union[_PromiseValue, _PromiseChainValue]]:
     def executor(resolve, reject):
         def notifiy(promise: Promise[_PromiseValue]):
@@ -279,6 +292,7 @@ def _promise_catch(promise: Promise[_PromiseValue], onRejected: Callable[[Any], 
                 reject(__promise_get_exception())
         __promise_notify(promise, notifiy)
     return _promise_new(executor)
+
 def _promise_finally(promise: Promise[_PromiseValue], onFinally: Callable[[], Any]) -> Promise[_PromiseValue]:
     def executor(resolve, reject):
         def notifiy(promise: Promise[_PromiseValue]):
@@ -294,14 +308,17 @@ def _promise_finally(promise: Promise[_PromiseValue], onFinally: Callable[[], An
                 reject(__promise_get_exception())
         __promise_notify(promise, notifiy)
     return _promise_new(executor)
+
 def _promise_resolved(value: _PromiseValue) -> Promise[_PromiseValue]:
     def executor(resolve, _):
         resolve(value)
     return _promise_new(executor)
+
 def _promise_rejected(value: Any) -> Promise[Any]:
     def executor(_, reject):
         reject(value)
     return _promise_new(executor)
+
 def _promise_all(promises: list[Promise[_PromiseValue]]) -> Promise[list[_PromiseValue]]:
     def executor(resolve, reject):
         i = -1
@@ -325,6 +342,7 @@ def _promise_all(promises: list[Promise[_PromiseValue]]) -> Promise[list[_Promis
             _promise_then(promise, onResolved, onRejected)
         next()
     return _promise_new(executor)
+
 def _promise_all_settled(promises: list[Promise[_PromiseValue]]) -> Promise[list[tuple[Literal["Resolved", "Rejected"], _PromiseValue]]]:
     def executor(resolve, _):
         i = -1
@@ -349,6 +367,7 @@ def _promise_all_settled(promises: list[Promise[_PromiseValue]]) -> Promise[list
             _promise_then(promise, onResolved, onRejected)
         next()
     return _promise_new(executor)
+
 def _promise_any(promises: list[Promise[_PromiseValue]]) -> Promise[_PromiseValue]:
     def executor(resolve, reject):
         done = False
@@ -378,6 +397,7 @@ def _promise_any(promises: list[Promise[_PromiseValue]]) -> Promise[_PromiseValu
                 reject(errors)
             _promise_then(promise, onResolved, onRejected)
     return _promise_new(executor)
+
 def _promise_race(promises: list[Promise[_PromiseValue]]) -> Promise[_PromiseValue]:
     def executor(resolve, reject):
         done = False
@@ -406,16 +426,14 @@ def _promise_race(promises: list[Promise[_PromiseValue]]) -> Promise[_PromiseVal
 
 _SuspendableInitial = dict()
 _SuspendableReturn = dict()
-_SuspendableExhaustive = dict()
+_SuspendableExhausted = dict()
+
 def _promise_from_suspendable(handle: Callable[[str], tuple], *initialArgs, initialState: str = _SuspendableInitial) -> Promise[Any]:
     def executor(resolve, reject):
         state = initialState
         args = tuple_to_array(initialArgs)
         def next():
             nonlocal state, args
-            if state is _SuspendableReturn:
-                resolve(args[0])
-                return
             if _as_promise(state) is not None:
                 def onResolved(result: str):
                     nonlocal state
@@ -430,30 +448,37 @@ def _promise_from_suspendable(handle: Callable[[str], tuple], *initialArgs, init
                     next()
                 _promise_then(_promise_all(args), onResolved, reject)
                 return
-            result = handle(state, (*args,))
-            if _as_promise(result) is None:
-                if result is _SuspendableExhaustive:
-                    raise "Exhaustive state"
-                if type(result) is tuple:
-                    state, *args = result
-                else:
-                    state = result
-                    args = []
-                next()
+            if state is _SuspendableReturn:
+                resolve(args[0])
                 return
-            def onResolved(result: tuple):
-                nonlocal state, args
-                if result is _SuspendableExhaustive:
-                    raise "Exhaustive state"
-                if type(result) is tuple:
-                    state, *args = result
-                else:
-                    state = result
-                    args = []
-                next()
-            _promise_then(result, onResolved, reject)
+            try:
+                result = handle(state, (*args,))
+                if _as_promise(result) is None:
+                    if result is _SuspendableExhausted:
+                        raise "Exhausted state"
+                    if type(result) is tuple:
+                        state, *args = result
+                    else:
+                        state = result
+                        args = []
+                    next()
+                    return
+                def onResolved(result: tuple):
+                    nonlocal state, args
+                    if result is _SuspendableExhausted:
+                        raise "Exhausted state"
+                    if type(result) is tuple:
+                        state, *args = result
+                    else:
+                        state = result
+                        args = []
+                    next()
+                _promise_then(result, onResolved, reject)
+            except:
+                reject(__promise_get_exception())
         next()
     return _promise_new(executor)
+
 def _promise_from_wait(timeout: int, value: _PromiseValue = None) -> Promise[_PromiseValue]:
     def executor(resolve, _):
         def onTimeout():

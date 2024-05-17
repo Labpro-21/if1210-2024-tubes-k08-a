@@ -65,7 +65,7 @@ def _pos_from_center() -> _PosCenter:
     return dict(
         type="Center"
     )
-def _pos_from_end(offset: float) -> _PosEnd:
+def _pos_from_end(offset: Optional[float] = None) -> _PosEnd:
     return dict(
         type="End",
         offset=offset
@@ -125,7 +125,8 @@ def _pos_factor_anchor(pos: _PosFactor, scalar: float) -> float:
 def _pos_center_anchor(pos: _PosCenter, scalar: float) -> float:
     return int(scalar / 2)
 def _pos_end_anchor(pos: _PosEnd, scalar: float) -> float:
-    return scalar - pos["offset"]
+    offset = pos["offset"]
+    return scalar - (offset if offset is not None else 0)
 def _pos_combine_anchor(pos: _PosCombine, scalar: float) -> float:
     leftAnchor = _pos_anchor(pos["left"], scalar)
     rightAnchor = _pos_anchor(pos["right"], scalar)
@@ -166,7 +167,7 @@ def _pos_absolute_calculate(pos: _PosAbsolute, scalar: float, direction: _Direct
 def _pos_factor_calculate(pos: _PosFactor, scalar: float, direction: _Direction, dim: "_Dim", view: "_View") -> float:
     return _pos_factor_anchor(pos, scalar)
 def _pos_center_calculate(pos: _PosCenter, scalar: float, direction: _Direction, dim: "_Dim", view: "_View") -> float:
-    result = max(0, _dim_calculate(dim, scalar, direction, pos, view))
+    result = max(0, _dim_calculate(dim, scalar, direction, 0, view))
     result = _pos_center_anchor(pos, scalar - result)
     return result
 def _pos_end_calculate(pos: _PosEnd, scalar: float, direction: _Direction, dim: "_Dim", view: "_View") -> float:
@@ -289,7 +290,7 @@ def _dim_from_function(function: Callable[[float], float]) -> _DimFunction:
         type="Function",
         function=function
     )
-def _dim_from_auto(mode: _DimAutoMode, min: _Dim, max: _Dim) -> _DimAuto:
+def _dim_from_auto(mode: _DimAutoMode, min: Optional[_Dim] = None, max: Optional[_Dim] = None) -> _DimAuto:
     return dict(
         type="Auto",
         mode=mode,
@@ -348,8 +349,7 @@ def _dim_view_anchor(dim: _DimView, scalar: float) -> float:
 def _dim_function_anchor(dim: _DimFunction, scalar: float) -> float:
     return dim["data"](scalar)
 def _dim_auto_anchor(dim: _DimAuto, scalar: float) -> float:
-    # TODO
-    pass
+    return 0
 
 def _dim_calculate(dim: _Dim, scalar: float, direction: _Direction, position: float, view: "_View") -> float:
     if _dim_as_absolute(dim) is not None:
@@ -1224,7 +1224,23 @@ def _border_draw(border: _Border, point: Point) -> None:
     frame = border["frame"]
     thickness = border["thickness"]
     newPoint = Point(point.x + frame.x, point.y + frame.y)
-    _thickness_draw(thickness, driver, rectangle_from_point_size(newPoint, rectangle_get_size(frame)), _Rune(".", _RuneAttribute_clear))
+    rectangle = rectangle_from_point_size(newPoint, rectangle_get_size(frame))
+    left = thickness.left
+    top = thickness.top
+    right = thickness.right
+    bottom = thickness.bottom
+    _driver_fill_rect(driver, rectangle_from_point_size(rectangle_get_point(rectangle), Size(min(rectangle.w, left), rectangle.h)), _Rune("│", _RuneAttribute_clear))
+    _driver_fill_rect(driver, rectangle_from_point_size(rectangle_get_point(rectangle), Size(rectangle.w, min(rectangle.h, top))), _Rune("─", _RuneAttribute_clear))
+    _driver_fill_rect(driver, rectangle_from_point_size(Point(rectangle.x + max(0, rectangle.w - right), rectangle.y), Size(min(rectangle.w, right), rectangle.h)), _Rune("│", _RuneAttribute_clear))
+    _driver_fill_rect(driver, rectangle_from_point_size(Point(rectangle.x, rectangle.y + max(0, rectangle.h - bottom)), Size(rectangle.w, min(rectangle.h, bottom))), _Rune("─", _RuneAttribute_clear))
+    if top != 0 and left != 0:
+        _driver_set_content(driver, rectangle.x, rectangle.y, _Rune("╭", _RuneAttribute_clear))
+    if top != 0 and right != 0:
+        _driver_set_content(driver, rectangle.x + rectangle.w - 1, rectangle.y, _Rune("╮", _RuneAttribute_clear))
+    if bottom != 0 and left != 0:
+        _driver_set_content(driver, rectangle.x, rectangle.y + rectangle.h - 1, _Rune("╰", _RuneAttribute_clear))
+    if bottom != 0 and right != 0:
+        _driver_set_content(driver, rectangle.x + rectangle.w - 1, rectangle.y + rectangle.h - 1, _Rune("╯", _RuneAttribute_clear))
 
 _Padding = type[_Adornment]
 
@@ -1411,6 +1427,13 @@ def _view_set_viewport_size(view: _View, viewportSize: Size) -> None:
     view["viewportSize"] = viewportSize
     view["recomputeViewportSize"] = False
 
+def _view_has_child(view: _View, subview: _View) -> None:
+    if mixin_is_override(view):
+        return mixin_call_override(view)
+    subviewSuperview = subview["superview"]
+    if subviewSuperview is view:
+        return True
+    return False
 def _view_add_child(view: _View, subview: _View) -> None:
     if mixin_is_override(view):
         return mixin_call_override(view)
@@ -1431,6 +1454,7 @@ def _view_remove_child(view: _View, subview: _View) -> None:
         return
     subviews = view["subviews"]
     array_splice(subviews, array_index_of(subviews, subview), 1)
+    subview["superview"] = None
     _view_mark_recompute_layout(view)
     _view_mark_recompute_display(view)
 

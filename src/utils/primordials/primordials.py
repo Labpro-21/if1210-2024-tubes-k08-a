@@ -20,8 +20,15 @@ def _string_concat(*strings: str) -> str:
     return result
 
 def _string_slice(string: str, start: int, end: int = None) -> str:
+    stringLength = len(string)
     if end is None:
-        end = len(string)
+        end = stringLength
+    if start < 0:
+        start = stringLength + start
+    if end < 0:
+        end = stringLength + end
+    start = max(0, min(stringLength, start))
+    end = max(0, min(stringLength, end))
     result = ""
     for i in range(start, end):
         result += string[i]
@@ -273,14 +280,14 @@ def _array_some(array: list[__T], callback: Callable[[__T, int, list[__T]], bool
 
 def _array_index_of(array: list[__T], element: __T) -> int:
     for i in range(0, len(array)):
-        if array[i] != element:
+        if array[i] is not element:
             continue
         return i
     return -1
 
 def _array_last_index_of(array: list[__T], element: __T) -> int:
     for i in range(len(array) - 1, -1, -1):
-        if array[i] != element:
+        if array[i] is not element:
             continue
         return i
     return -1
@@ -438,17 +445,23 @@ def _namedtuple_with(tuple: __NamedTuple, **elements: Any) -> __NamedTuple:
         result[key] = value
     return tupleType(**result)
 
+def _dict_clear(dictionary: __Dict):
+    for key in elements.keys():
+        del elements[key]
+
+def _dict_set(dictionary: __Dict, to: __Dict):
+    for key, value in to.items():
+        dictionary[key] = value
+
 def _dict_with(dictionary: __Dict, **elements: Any) -> __Dict:
     result = dict()
-    for key, value in dictionary.items():
-        result[key] = value
-    for key, value in elements.items():
-        result[key] = value
+    _dict_set(result, dictionary)
+    _dict_set(result, elements)
     return result
 
 def _dict_key_of(dictionary: __Dict, element: Any) -> Any:
     for key, value in dictionary.items():
-        if value != element:
+        if value is not element:
             continue
         return key
     return None

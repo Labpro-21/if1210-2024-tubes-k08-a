@@ -1,14 +1,13 @@
-from .coroutines import _Timer, _Pollable, _Looper, _looper_id_counter, _looper_current_id, _looper_new, _looper_get_current, _ClosureType, _looper_closure, _looper_tick, _looper_tick_timers, _looper_tick_pollables, _looper_tick_immediates, _looper_tick_microtasks, _set_timeout, _set_interval, _clear_timeout, _clear_interval, _set_immediate, _next_tick, _PromiseState, _PromiseValue, _PromiseChainValue, Promise, _PromiseResolve, _PromiseReject, _promise_new, _as_promise, _promise_then, _promise_catch, _promise_finally, _promise_resolved, _promise_rejected, _promise_all, _promise_all_settled, _promise_any, _promise_race, _SuspendableInitial, _SuspendableReturn, _SuspendableExhaustive, _promise_from_suspendable, _promise_from_wait
+from .coroutines import _Timer, _Pollable, _Looper, _looper_new, _looper_get_current, _ClosureType, _looper_closure, _looper_needs_tick, _looper_tick, _looper_tick_timers, _looper_tick_pollables, _looper_tick_immediates, _looper_tick_microtasks, _set_timeout, _set_interval, _clear_timeout, _clear_interval, _set_immediate, _next_tick, _PromiseState, _PromiseValue, _PromiseChainValue, Promise, _PromiseResolve, _PromiseReject, _promise_new, _as_promise, _promise_then, _promise_catch, _promise_finally, _promise_resolved, _promise_rejected, _promise_all, _promise_all_settled, _promise_any, _promise_race, _SuspendableInitial, _SuspendableReturn, _SuspendableExhausted, _promise_from_suspendable, _promise_from_wait
 
 Timer = _Timer
 Pollable = _Pollable
 Looper = _Looper
-looper_id_counter = _looper_id_counter
-looper_current_id = _looper_current_id
 looper_new = _looper_new
 looper_get_current = _looper_get_current
 ClosureType = _ClosureType
 looper_closure = _looper_closure
+looper_needs_tick = _looper_needs_tick
 looper_tick = _looper_tick
 looper_tick_timers = _looper_tick_timers
 looper_tick_pollables = _looper_tick_pollables
@@ -39,6 +38,6 @@ promise_any = _promise_any
 promise_race = _promise_race
 SuspendableInitial = _SuspendableInitial
 SuspendableReturn = _SuspendableReturn
-SuspendableExhaustive = _SuspendableExhaustive
+SuspendableExhausted = _SuspendableExhausted
 promise_from_suspendable = _promise_from_suspendable
 promise_from_wait = _promise_from_wait
