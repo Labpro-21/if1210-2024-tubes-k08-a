@@ -49,6 +49,18 @@ def _visual_set_view(visual: _Visual, view: View) -> None:
 def _visual_set_directory(visual: _Visual, directory: str) -> None:
     visual["directory"] = directory
 
+def _visual_add_key_listener(visual: _Visual, view: View, callback: Callable[[KeyEvent], Any]) -> None:
+    keyListeners = view["__key_listeners"]
+    if array_includes(keyListeners, callback):
+        return
+    array_push(keyListeners, callback)
+def _visual_remove_key_listener(visual: _Visual, view: View, callback: Callable[[KeyEvent], Any]) -> None:
+    keyListeners = view["__key_listeners"]
+    listenerIndex = array_index_of(keyListeners, callback)
+    if listenerIndex == -1:
+        return
+    array_splice(keyListeners, listenerIndex, 1)
+
 def __visual_attach_key_handler(visual: _Visual, view: View) -> None:
     keyListeners = None
     propagateHandler = None
@@ -141,18 +153,23 @@ def _visual_show_frame_sequence(
         nonlocal currentFrame
         return setFrame(currentFrame - 1)
     handle = None
-    def play(fps: float = 60, loop = False) -> None:
+    def isAttached():
+        currentView = mainView
+        while currentView["superview"] is not None and currentView["superview"] is not visual["toplevel"]:
+            currentView = currentView["superview"]
+        return currentView["superview"] is visual["toplevel"]
+    def play(fps: float = 60, loopFrame = False) -> None:
         nonlocal handle
         if handle is not None:
             stop()
         def loop():
             nonlocal handle
-            if visual["view"] is not mainView:
+            if not isAttached():
                 stop()
                 return
             if nextFrame():
                 return
-            if loop == False:
+            if not loopFrame:
                 stop()
                 return
             setFrame(0)
@@ -208,21 +225,23 @@ def _visual_show_simple_dialog(
     adornment_set_thickness(view_get_border(mainView), Thickness(*border))
     adornment_set_thickness(view_get_padding(mainView), Thickness(*padding))
 
-    titleView = view_new(driver)
-    view_add_child(mainView, titleView)
-    view_set_x(titleView, pos_from_absolute(0))
-    view_set_y(titleView, pos_from_absolute(0))
-    view_set_width(titleView, dim_from_fill(0))
-    view_set_height(titleView, dim_from_absolute(2))
-    textFormatter = view_get_text_formatter(titleView)
-    text_formatter_set_text(textFormatter, __parse_colored_text(title)[0])
-    text_formatter_set_horizontal_alignment(textFormatter, "Center")
-    text_formatter_set_vertical_alignment(textFormatter, "Middle")
+    titleView = None
+    if title is not None:
+        titleView = view_new(driver)
+        view_add_child(mainView, titleView)
+        view_set_x(titleView, pos_from_absolute(0))
+        view_set_y(titleView, pos_from_absolute(0))
+        view_set_width(titleView, dim_from_fill(0))
+        view_set_height(titleView, dim_from_absolute(2))
+        textFormatter = view_get_text_formatter(titleView)
+        text_formatter_set_text(textFormatter, __parse_colored_text(title)[0])
+        text_formatter_set_horizontal_alignment(textFormatter, "Center")
+        text_formatter_set_vertical_alignment(textFormatter, "Middle")
 
     contentView = view_new(driver)
     view_add_child(mainView, contentView)
     view_set_x(contentView, pos_from_absolute(0))
-    view_set_y(contentView, pos_from_absolute(2))
+    view_set_y(contentView, pos_from_absolute(2 if title is not None else 0))
     view_set_width(contentView, dim_from_fill(0))
     view_set_height(contentView, dim_from_fill(0))
     textFormatter = view_get_text_formatter(contentView)
@@ -259,7 +278,6 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> tuple[Callable[[
             selectableClearAfterSelection=True,
             selectableAllowEscape=True,
             inputWaitAfterContent=True,
-            inputClearAfterStackEmpty=False,
             inputAllowEscape=True,
         ),
         **kwargs
@@ -303,18 +321,21 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> tuple[Callable[[
     selectableListeners: list[Callable[[str], None]] = []
     lastSelectableIndex = -1
     lastSelectables: list[View] = []
-    def newSelectable(message: __Text, description: __Text) -> None:
+    def newSelectable(message: __Text, description: __Text, /, id: str = None) -> None:
         nonlocal contentLastAttribute
         message, contentLastAttribute = __parse_colored_text(message, contentLastAttribute)
         if description is not None:
             description = __parse_colored_text(description, contentLastAttribute)[0]
+        if id is None:
+            id = array_join(array_map(message, lambda r, *_: r.character), "")
         selectable = view_new(driver)
         textFormatter = view_get_text_formatter(selectable)
         text_formatter_set_text(textFormatter, message)
         text_formatter_set_horizontal_alignment(textFormatter, "Center")
         text_formatter_set_vertical_alignment(textFormatter, "Middle")
-        selectable["message"] = message
-        selectable["description"] = description
+        selectable["selectableId"] = id
+        selectable["selectableMessage"] = message
+        selectable["selectableDescription"] = description
         array_push(selectables, selectable)
         layoutSelectable()
         selectableChange()
@@ -366,13 +387,13 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> tuple[Callable[[
         if lastSelectableIndex != -1:
             selectable = selectables[lastSelectableIndex]
             textFormatter = view_get_text_formatter(selectable)
-            message = selectable["message"]
+            message = selectable["selectableMessage"]
             text_formatter_set_text(textFormatter, message)
         if selectableIndex != -1:
             selectable = selectables[selectableIndex]
             textFormatter = view_get_text_formatter(selectable)
-            message = selectable["message"]
-            description = selectable["description"]
+            message = selectable["selectableMessage"]
+            description = selectable["selectableDescription"]
             text_formatter_set_text(textFormatter, __reverse_background_foreground(message))
             if description is not None:
                 descriptionTextFormatter = view_get_text_formatter(selectableDescription)
@@ -388,24 +409,21 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> tuple[Callable[[
         if len(selectables) == 0:
             return
         if event.key == "ControlESC":
-            selectableAllowEscape = flags["selectableAllowEscape"]
-            if not selectableAllowEscape:
+            if not flags["selectableAllowEscape"]:
                 return
-            selectableClearAfterSelection = flags["selectableClearAfterSelection"]
             for selectableListener in selectableListeners:
                 selectableListener(None)
-            if selectableClearAfterSelection:
+            if flags["selectableClearAfterSelection"]:
                 clearSelectables()
             return
         if event.key == "ControlCR" or event.key == "ControlLF":
             if selectableIndex == -1 or len(selectableListeners) == 0:
                 return
-            selectableClearAfterSelection = flags["selectableClearAfterSelection"]
-            selection = array_map(selectables[selectableIndex]["message"], lambda r, *_: r.character)
-            selection = array_join(selection, "")
+            selectable = selectables[selectableIndex]
+            selectableId = selectable["selectableId"]
             for selectableListener in selectableListeners:
-                selectableListener(selection)
-            if selectableClearAfterSelection:
+                selectableListener(selectableId)
+            if flags["selectableClearAfterSelection"]:
                 clearSelectables()
             return
         if event.key == "Up":
@@ -418,9 +436,8 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> tuple[Callable[[
             return
     def print(message: __Text, *args, end: __Text = "\n", **kwargs) -> Any:
         nonlocal lastDrawing, contentLastAttribute
-        hasTitle = flags["hasTitle"]
         additionalContent, contentLastAttribute = __parse_colored_text(message, contentLastAttribute)
-        if hasTitle:
+        if flags["hasTitle"]:
             titleText = recognizeTitle(additionalContent)
             if titleText is not None:
                 additionalContent = []
@@ -590,8 +607,7 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> tuple[Callable[[
                 inputCurrent["__inputValueRenderer"] = None
                 inputCurrent["inputUpdate"]()
         if event.key == "ControlESC":
-            inputAllowEscape = flags["inputAllowEscape"]
-            if not inputAllowEscape:
+            if not flags["inputAllowEscape"]:
                 return
             if inputIndex == -1:
                 return
@@ -714,7 +730,8 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> tuple[Callable[[
             return
     def input(message: __Text, *args, **kwargs) -> Any:
         if "selectable" in kwargs and kwargs["selectable"]:
-            do = lambda *_: newSelectable(message, args[0] if len(args) > 0 else None)
+            del kwargs["selectable"]
+            do = lambda *_: newSelectable(message, args[0] if len(args) > 0 else None, **kwargs)
             if flags["selectableWaitAfterContent"]:
                 return promise_then(waitDrawComplete(), do)
             do()
@@ -723,8 +740,20 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> tuple[Callable[[
         if flags["inputWaitAfterContent"]:
             return promise_then(waitDrawComplete(), do)
         return do()
+    def getRootView():
+            currentView = view
+            while currentView["superview"] is not None and currentView["superview"] is not visual["toplevel"]:
+                currentView = currentView["superview"]
+            return currentView
     def metaAction(action: str, kwargs: dict) -> Any:
         nonlocal contentLastAttribute
+        if action == "getVisual":
+            return visual
+        if action == "getRootView":
+            return getRootView()
+        if action == "setAsCurrentView":
+            _visual_set_view(visual, getRootView())
+            return
         if action == "setAttribute":
             contentLastAttribute = kwargs["value"]
             return
@@ -759,6 +788,7 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> tuple[Callable[[
         if action == "clearInputs":
             clearInputs()
             return
+        raise f"Unknown action {action}"
     def meta(*args, **kwargs) -> Any:
         nonlocal contentDrawnPosition, contentLastAttribute
         if len(args) == 2 and type(args[0]) is str:
@@ -773,18 +803,6 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> tuple[Callable[[
             action = kwargs["action"]
             return metaAction(action, kwargs)
     return (print, input, meta)
-
-def _visual_add_key_listener(visual: _Visual, view: View, callback: Callable[[KeyEvent], Any]) -> None:
-    keyListeners = view["__key_listeners"]
-    if array_includes(keyListeners, callback):
-        return
-    array_push(keyListeners, callback)
-def _visual_remove_key_listener(visual: _Visual, view: View, callback: Callable[[KeyEvent], Any]) -> None:
-    keyListeners = view["__key_listeners"]
-    listenerIndex = array_index_of(keyListeners, callback)
-    if listenerIndex == -1:
-        return
-    array_splice(keyListeners, listenerIndex, 1)
 
 def _fg(r: Union[int, str] = None, g: int = None, b: int = None) -> str:
     if r is None and g is None and b is None:

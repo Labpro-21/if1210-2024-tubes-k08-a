@@ -1,4 +1,5 @@
 from utils.primordials import *
+from utils.math import *
 from game.database import *
 from .visual import _Visual, _visual_new
 from typing import TypedDict, NamedTuple, Literal, Optional
@@ -25,21 +26,27 @@ _MonsterSchemaType = NamedTuple("Monster", [
     ("id", int),
     ("name", str), # Each level, an OWCA might have different name. Except when the user overrides it in inventoryMonsterDatabase.
     ("description", str),
-    ("type", str),
+    ("family", str),
     ("level", int),
     ("healthPoints", float), # All these fields are the base properties. These might get overriden in inventoryMonsterDatabase.
     ("attackPower", float),
     ("defensePower", float),
+    ("spriteDefault", str),
+    ("spriteFront", str),
+    ("spriteBack", str),
 ])
 _MonsterSchemaProperties = [
     database_property_new("id", int, lambda x: int(x), lambda x: str(x)),
     database_property_new("name", str, lambda x: x, lambda x: x),
     database_property_new("description", str, lambda x: x, lambda x: x),
-    database_property_new("type", str, lambda x: x, lambda x: x),
+    database_property_new("family", str, lambda x: x, lambda x: x),
     database_property_new("level", int, lambda x: int(x), lambda x: str(x)),
     database_property_new("healthPoints", float, lambda x: float(x), lambda x: str(x)),
     database_property_new("attackPower", float, lambda x: float(x), lambda x: str(x)),
     database_property_new("defensePower", float, lambda x: float(x), lambda x: str(x)),
+    database_property_new("spriteDefault", str, lambda x: x, lambda x: x),
+    database_property_new("spriteFront", str, lambda x: x, lambda x: x),
+    database_property_new("spriteBack", str, lambda x: x, lambda x: x),
 ]
 _MonsterSchema = database_schema_new("csv", _MonsterSchemaType, _MonsterSchemaProperties)
 _MonsterDatabase = Database[_MonsterSchemaType]
@@ -266,4 +273,4 @@ def _gamestate_time(gameState: _GameState) -> float:
 def _gamestate_deltatime(gameState: _GameState) -> float:
     return 0
 def _gamestate_rand(gameState: _GameState) -> float:
-    return 0
+    return rand()

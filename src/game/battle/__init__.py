@@ -1,0 +1,17 @@
+from .battle import _battle_get, _battle_set, _battle_new, _battle_end_player_draw, _battle_end_player_won, _battle_end_player_escaped, _battle_verdict_is_finished, _battle_verdict_is_player_draw, _battle_verdict_is_player_won, _battle_verdict_is_player_escaped, _battle_action_attack
+
+battle_get = _battle_get
+battle_set = _battle_set
+battle_new = _battle_new
+battle_end_player_draw = _battle_end_player_draw
+battle_end_player_won = _battle_end_player_won
+battle_end_player_escaped = _battle_end_player_escaped
+battle_verdict_is_finished = _battle_verdict_is_finished
+battle_verdict_is_player_draw = _battle_verdict_is_player_draw
+battle_verdict_is_player_won = _battle_verdict_is_player_won
+battle_verdict_is_player_escaped = _battle_verdict_is_player_escaped
+battle_action_attack = _battle_action_attack
+
+from .ui_logic import _battle_ui_handler_wild_monster
+
+battle_ui_handler_wild_monster = _battle_ui_handler_wild_monster
