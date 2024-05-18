@@ -446,8 +446,8 @@ def _namedtuple_with(tuple: __NamedTuple, **elements: Any) -> __NamedTuple:
     return tupleType(**result)
 
 def _dict_clear(dictionary: __Dict):
-    for key in elements.keys():
-        del elements[key]
+    for key in list(dictionary.keys()):
+        del dictionary[key]
 
 def _dict_set(dictionary: __Dict, to: __Dict):
     for key, value in to.items():

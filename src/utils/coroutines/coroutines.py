@@ -229,6 +229,7 @@ def _promise_new(executor: Callable[[_PromiseResolve[_PromiseValue], _PromiseRej
         promise["value"] = value
         for notify in promise["notifies"]:
             _next_tick(lambda: notify(promise))
+        promise["notifies"] = None
     def rejectFunction(value: Any) -> None:
         if promise["status"] != "Pending":
             return
@@ -236,6 +237,7 @@ def _promise_new(executor: Callable[[_PromiseResolve[_PromiseValue], _PromiseRej
         promise["value"] = value
         for notify in promise["notifies"]:
             _next_tick(lambda: notify(promise))
+        promise["notifies"] = None
         # handle uncaught promise function if notifies is 0
     try:
         executor(resolveFunction, rejectFunction)
@@ -250,7 +252,8 @@ def _as_promise(value: Any) -> Optional[Promise[Any]]:
 
 def __promise_notify(promise: Promise[_PromiseValue], notify: Callable[[Promise[_PromiseChainValue]], None]) -> None:
     if promise["status"] != "Pending":
-        notify(promise)
+        _next_tick(lambda: notify(promise))
+        return
     notifies = promise["notifies"]
     array_push(notifies, notify)
 
@@ -449,7 +452,10 @@ def _promise_from_suspendable(handle: Callable[[str], tuple], *initialArgs, init
                 _promise_then(_promise_all(args), onResolved, reject)
                 return
             if state is _SuspendableReturn:
-                resolve(args[0])
+                if len(args) == 1:
+                    resolve(args[0])
+                else:
+                    resolve((*args,))
                 return
             try:
                 result = handle(state, (*args,))
