@@ -34,16 +34,22 @@ def inventory() :
     for monster in monsters:
         print(f"{x}. Monster      (Name: {gamestate_get()}, Lvl: {gamestate_get()}, HP: {gamestate_get()})")
         x += 1
+    for potion in potions:
+        print(f"{x}. Potion       (Type: {gamestate_get()}, Qty: {gamestate_get()})")
 
-if input == {}:# untuk monster
-    print("Monster")
-    print(f"Name      : {gamestate_get()}")
-    print(f"ATK Power : {gamestate_get()}")
-    print(f"DEF Power : {gamestate_get()}")
-    print(f"HP        : {gamestate_get()}")
-    print(f"Level     : {gamestate_get()}")
 
-if input == {}:
-    print("Potion")
-    print(f"Type      : {gamestate_get()}")
-    print(f"Quantity  : {gamestate_get()}")
+for n in range (1, len(monster)) :
+    if input == n:# untuk monster
+        print("Monster")
+        print(f"Name      : {gamestate_get()}")
+        print(f"ATK Power : {gamestate_get()}")
+        print(f"DEF Power : {gamestate_get()}")
+        print(f"HP        : {gamestate_get()}")
+        print(f"Level     : {gamestate_get()}")
+
+
+for i in range (len(monster)+1,len(monster)+len(potion)) :
+    if input == i:
+        print("Potion")
+        print(f"Type      : {gamestate_get()}")
+        print(f"Quantity  : {gamestate_get()}")
