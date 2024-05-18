@@ -46,6 +46,7 @@ for n in range (1, len(monster)) :
         print(f"DEF Power : {gamestate_get()}")
         print(f"HP        : {gamestate_get()}")
         print(f"Level     : {gamestate_get()}")
+        
 
 
 for i in range (len(monster)+1,len(monster)+len(potion)) :
