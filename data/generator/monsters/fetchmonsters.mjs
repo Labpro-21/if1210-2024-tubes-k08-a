@@ -1,6 +1,10 @@
 import { parse } from 'node-html-parser';
 import { decode } from 'html-entities';
 import fs from "fs/promises";
+import url from 'url';
+import path from "path";
+
+const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
 (async () => {
 	const origin = "https://pokemondb.net";
@@ -74,5 +78,5 @@ import fs from "fs/promises";
 		m.spriteFront,
 		m.spriteBack
 	].join(";")).join("\n");
-	await fs.writeFile("database_monster.csv", csv);
+	await fs.writeFile(path.join(__dirname, "database_monster.csv"), csv);
 })();

@@ -1,4 +1,8 @@
 import fs from "fs/promises";
+import url from 'url';
+import path from "path";
+
+const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
 (async () => {
 	const p = (...args) => new URL(String.raw(...args), "https://gracidea.lecoq.io");
@@ -13,10 +17,10 @@ import fs from "fs/promises";
 		...Object.entries(npcsTileset.frames).map(([k, v]) => [k, { ...v, source: "npc" }]),
 		...Object.entries(creaturesTileset.frames).map(([k, v]) => [k, { ...v, source: "creature" }])
 	]);
-	await fs.writeFile("tileset.json", JSON.stringify(tileset));
-	await fs.writeFile("worldTilesetImage.webp", worldTilesetImage);
-	await fs.writeFile("npcsTilesetImage.webp", npcsTilesetImage);
-	await fs.writeFile("creaturesTilesetImage.webp", creaturesTilesetImage);
+	await fs.writeFile(path.join(__dirname, "tileset.json"), JSON.stringify(tileset));
+	await fs.writeFile(path.join(__dirname, "worldTilesetImage.webp"), worldTilesetImage);
+	await fs.writeFile(path.join(__dirname, "npcsTilesetImage.webp"), npcsTilesetImage);
+	await fs.writeFile(path.join(__dirname, "creaturesTilesetImage.webp"), creaturesTilesetImage);
 
 	const worldsheet = [{}, {}, {}, {}, {}];
 	const regions = (await (await fetch(p`/data/maps.json`)).json()).regions;
@@ -66,7 +70,7 @@ import fs from "fs/promises";
 		}
 		return newLayer;
 	});
-	await fs.writeFile("worldsheet.json", JSON.stringify({
+	await fs.writeFile(path.join(__dirname, "worldsheet.json"), JSON.stringify({
 		width: totalBounds[2],
 		height: totalBounds[3],
 		layers: JSON.stringify(newLayerBounds)

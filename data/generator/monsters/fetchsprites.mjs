@@ -2,6 +2,9 @@ import { parse } from 'node-html-parser';
 import fs from "fs/promises";
 import fs0 from "fs";
 import path from "path";
+import url from 'url';
+
+const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
 (async () => {
 	const origin = "https://pokemondb.net";
@@ -12,7 +15,7 @@ import path from "path";
 		const spriteLinksBatch = spriteLinks.slice(i, i + 10);
 		await Promise.all(spriteLinksBatch.map(async spriteLink => {
 			const monsterStrId = spriteLink.slice("/sprites/".length);
-			const directory = path.join("sprites", monsterStrId);
+			const directory = path.join(__dirname, "sprites/", monsterStrId);
 			if(!fs0.existsSync(directory))
 				await fs.mkdir(directory, { recursive: true });
 			const spriteFile = path.join(directory, `${monsterStrId}.png`);
