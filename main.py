@@ -4,6 +4,7 @@ from utils.console import *
 from game.state import *
 from game.database import *
 from game.menu import *
+from game.battle import *
 from os import path
 import traceback
 
@@ -19,28 +20,54 @@ def main(state, args):
             visual_tick(visual)
             visual_draw(visual)
         set_interval(tick, 15)
-        return "menu", gameState, visual
+        gamestate_set_user_id(gameState, 1)
+        return "initializing", gameState
     if state == "initializing":
-        gameState, visual, *_ = args
-        promise = promise_from_suspendable(menu_show_loading_initial, gameState, visual)
-        return "loading", gameState, visual, promise
+        gameState, *_ = args
+        promise = promise_from_suspendable(menu_show_loading_initial, gameState)
+        return "menuInit", gameState, promise
     if state == "loading":
-        gameState, visual, *_ = args
-        promise = promise_from_suspendable(menu_show_loading_splash, gameState, visual, [("menu splash", "menu_background.gif.txt")])
-        return "menu", gameState, visual, promise
-    if state == "menu":
-        gameState, visual, *_ = args
+        gameState, *_ = args
+        promise = promise_from_suspendable(menu_show_loading_splash, gameState, [("menu splash", "menu_background.gif.txt")])
+        return "menuInit", gameState, promise
+    if state == "menuInit":
+        gameState, *_ = args
+        visual = gamestate_get_visual(gameState)
         menuBackground = None
         # menuBackground = visual_show_splash(visual, "menu_background.gif.txt")
-        # menuBackground["play"](60)
-        dialogView = visual_show_simple_dialog(visual, parent=menuBackground)
-        console = visual_with_mock(visual, dialogView, keySpeed=120, hasTitle=True)
-        menu = promise_from_suspendable(menu_show_menu, gameState, console)
-        return 4, gameState, visual, menu
-    if state == 4:
-        gameState, visual, *_ = args
-        return -2
-    if state == -2:
+        # menuBackground["play"](60, True)
+        menuView = visual_show_simple_dialog(visual, parent=menuBackground)
+        console = visual_with_mock(visual, menuView, keySpeed=120, hasTitle=True)
+        # return "menu", gameState, console
+        return "menuOption", gameState, console, "admin:debug_test"
+    if state == "menu":
+        gameState, console, *_ = args
+        print, input, meta = console
+        meta(action="setAsCurrentView")
+        menu = promise_from_suspendable(menu_show_main_menu, gameState, console)
+        return "menuOption", gameState, console, menu
+    if state == "menuOption":
+        gameState, console, menu = args
+        if menu == "guest:login":
+            return "menu", gameState, console, promise_from_suspendable(menu_show_login, gameState, console)
+        if menu == "guest:register":
+            return "menu", gameState, console, promise_from_suspendable(menu_show_register, gameState, console)
+        if menu == "agent:play":
+            return -1
+        if menu == "admin:shop_management":
+            return -1
+        if menu == "admin:debug_test":
+            return "menu", gameState, console, promise_from_suspendable(menu_show_debug_test, gameState, console)
+        if menu == "agent:logout" or menu == "admin:logout":
+            return "menu", gameState, console, promise_from_suspendable(menu_show_logout, gameState, console)
+        if menu == "guest:exit" or menu == "agent:exit" or menu == "admin:exit":
+            return "checkExit", gameState, console, promise_from_suspendable(menu_show_exit, gameState, console)
+    if state == "checkExit":
+        gameState, console, confirmExit = args
+        if confirmExit:
+            return -1
+        return "menu", gameState, console
+    if state == -1:
         return SuspendableReturn, None
     return SuspendableExhausted
 
