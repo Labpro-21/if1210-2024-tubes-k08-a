@@ -3,6 +3,7 @@ from utils.console import *
 from utils.coroutines import *
 from utils.csv import *
 from utils.codec import *
+from utils.mixin import *
 from typing import TypedDict, Optional, Callable, Any, Union
 import os
 import time
@@ -28,6 +29,11 @@ def _visual_new() -> _Visual:
         splashes=dict()
     )
     driverstd_add_key_listener(driver, lambda e: __visual_on_key(visual, e))
+    __visual_attach_mock_view_add_remove_child_method(visual, toplevel)
+    __visual_attach_connect_handler(visual, toplevel)
+    __visual_attach_disconnect_handler(visual, toplevel)
+    __visual_attach_key_handler(visual, toplevel)
+    toplevel["__connected"] = True
     return visual
 def _visual_get_driver(visual: _Visual) -> Driver:
     return visual["driver"]
@@ -44,10 +50,156 @@ def _visual_set_view(visual: _Visual, view: View) -> None:
     visual["view"] = view
     if view is None:
         return
-    __visual_attach_key_handler(visual, view)
     view_add_child(toplevel, view)
 def _visual_set_directory(visual: _Visual, directory: str) -> None:
     visual["directory"] = directory
+
+def _visual_get_root_view(visual: _Visual, view: View) -> View:
+    currentView = view
+    while currentView["superview"] is not None and currentView["superview"] is not visual["toplevel"]:
+        currentView = currentView["superview"]
+    return currentView
+
+def __visual_attach_mock_view_add_remove_child_method(visual: _Visual, view: View):
+    if "__mock_view_add_remove_child" in view and view["__mock_view_add_remove_child"] is not None:
+        viewVisual, original_view_add_child, original_view_remove_child = view["__mock_view_add_remove_child"]
+        if viewVisual is visual:
+            return
+        __visual_detach_mock_view_add_remove_child_method(viewVisual, view)
+    subviews = view["subviews"]
+    for subview in subviews:
+        __visual_attach_mock_view_add_remove_child_method(visual, subview)
+        __visual_attach_connect_handler(visual, subview)
+        __visual_attach_disconnect_handler(visual, subview)
+        __visual_attach_key_handler(visual, subview)
+    original_view_add_child = mixin_get_override(visual, "_view_add_child")
+    original_view_remove_child = mixin_get_override(visual, "_view_remove_child")
+    def _mock_add_child(view: View, subview: View):
+        result = None
+        if original_view_add_child is not None:
+            result = original_view_add_child(view, subview)
+        else:
+            result = mixin_call_super(view, subview, __mixin_self=_mock_add_child)
+        __visual_attach_mock_view_add_remove_child_method(visual, subview)
+        __visual_attach_connect_handler(visual, subview)
+        __visual_attach_disconnect_handler(visual, subview)
+        __visual_attach_key_handler(visual, subview)
+        if _visual_is_connected(visual, view):
+            connectListeners = subview["__connect_listeners"]
+            for connectListener in connectListeners:
+                connectListener()
+        return result
+    def _mock_remove_child(view: View, subview: View):
+        result = None
+        wasAChild = view_has_child(view, subview)
+        if original_view_add_child is not None:
+            result = original_view_remove_child(view, subview)
+        else:
+            result = mixin_call_super(view, subview, __mixin_self=_mock_remove_child)
+        if wasAChild and _visual_is_connected(visual, view):
+            disconnectListeners = subview["__disconnect_listeners"]
+            for disconnectListener in disconnectListeners:
+                disconnectListener()
+        __visual_detach_mock_view_add_remove_child_method(visual, subview)
+        return result
+    view["__mock_view_add_remove_child"] = (visual, original_view_add_child, original_view_remove_child)
+    mixin_set_override(view, 
+        _view_add_child=_mock_add_child,
+        _view_remove_child=_mock_remove_child,
+    )
+def __visual_detach_mock_view_add_remove_child_method(visual: _Visual, view: View):
+    if "__mock_view_add_remove_child" not in view or view["__mock_view_add_remove_child"] is None:
+        return
+    viewVisual, original_view_add_child, original_view_remove_child = view["__mock_view_add_remove_child"]
+    if viewVisual is not visual:
+        return
+    view["__mock_view_add_remove_child"] = None
+    mixin_set_override(view, 
+        _view_add_child=original_view_add_child,
+        _view_remove_child=original_view_remove_child,
+    )
+    subviews = view["subviews"]
+    for subview in subviews:
+        __visual_detach_mock_view_add_remove_child_method(visual, subview)
+
+def _visual_add_connect_listener(visual: _Visual, view: View, callback: Callable[[], Any]) -> None:
+    connectListeners = view["__connect_listeners"]
+    if array_includes(connectListeners, callback):
+        return
+    array_push(connectListeners, callback)
+def _visual_remove_connect_listener(visual: _Visual, view: View, callback: Callable[[], Any]) -> None:
+    connectListeners = view["__connect_listeners"]
+    listenerIndex = array_index_of(connectListeners, callback)
+    if listenerIndex == -1:
+        return
+    array_splice(connectListeners, listenerIndex, 1)
+
+def _visual_add_disconnect_listener(visual: _Visual, view: View, callback: Callable[[], Any]) -> None:
+    disconnectListeners = view["__disconnect_listeners"]
+    if array_includes(disconnectListeners, callback):
+        return
+    array_push(disconnectListeners, callback)
+def _visual_remove_disconnect_listener(visual: _Visual, view: View, callback: Callable[[], Any]) -> None:
+    disconnectListeners = view["__disconnect_listeners"]
+    listenerIndex = array_index_of(disconnectListeners, callback)
+    if listenerIndex == -1:
+        return
+    array_splice(disconnectListeners, listenerIndex, 1)
+
+def __visual_attach_connect_handler(visual: _Visual, view: View) -> None:
+    connectListeners = None
+    propagateHandler = None
+    if connectListeners is None:
+        connectListeners = []
+        view["__connect_listeners"] = connectListeners
+    else:
+        connectListeners = view["__connect_listeners"]
+    if propagateHandler is None:
+        def propagateToSubviews() -> None:
+            view["__connected"] = True
+            subviews = view["subviews"]
+            for subview in subviews:
+                if "__connect_listeners" not in subview:
+                    continue
+                subviewConnectListeners = subview["__connect_listeners"]
+                for subviewConnectListener in subviewConnectListeners:
+                    subviewConnectListener()
+        propagateHandler = propagateToSubviews
+        view["__connect_propagate_handler"] = propagateHandler
+    else:
+        propagateHandler = view["__connect_propagate_handler"]
+    if array_includes(connectListeners, propagateHandler):
+        return
+    array_push(connectListeners, propagateHandler)
+def __visual_attach_disconnect_handler(visual: _Visual, view: View) -> None:
+    disconnectListeners = None
+    propagateHandler = None
+    if disconnectListeners is None:
+        disconnectListeners = []
+        view["__disconnect_listeners"] = disconnectListeners
+    else:
+        disconnectListeners = view["__disconnect_listeners"]
+    if propagateHandler is None:
+        def propagateToSubviews() -> None:
+            view["__connected"] = False
+            subviews = view["subviews"]
+            for subview in subviews:
+                if "__disconnect_listeners" not in subview:
+                    continue
+                subviewConnectListeners = subview["__disconnect_listeners"]
+                for subviewConnectListener in subviewConnectListeners:
+                    subviewConnectListener()
+        propagateHandler = propagateToSubviews
+        view["__disconnect_propagate_handler"] = propagateHandler
+    else:
+        propagateHandler = view["__disconnect_propagate_handler"]
+    if array_includes(disconnectListeners, propagateHandler):
+        return
+    array_push(disconnectListeners, propagateHandler)
+
+def _visual_is_connected(visual: _Visual, view: View) -> bool:
+    return ("__connected" in view and view["__connected"] and 
+        "__mock_view_add_remove_child" in view and view["__mock_view_add_remove_child"][0] is visual)
 
 def _visual_add_key_listener(visual: _Visual, view: View, callback: Callable[[KeyEvent], Any]) -> None:
     keyListeners = view["__key_listeners"]
@@ -86,10 +238,8 @@ def __visual_attach_key_handler(visual: _Visual, view: View) -> None:
         return
     array_push(keyListeners, propagateHandler)
 def __visual_on_key(visual: _Visual, event: KeyEvent) -> None:
-    view = visual["view"]
-    if view is None:
-        return
-    keyListeners = view["__key_listeners"]
+    toplevel = visual["toplevel"]
+    keyListeners = toplevel["__key_listeners"]
     for keyListener in keyListeners:
         keyListener(event)
 
@@ -136,6 +286,11 @@ def _visual_show_frame_sequence(
     text_formatter_set_wordwrap(textFormatter, False)
     text_formatter_set_horizontal_alignment(textFormatter, "Center")
     text_formatter_set_vertical_alignment(textFormatter, "Middle")
+
+    __visual_attach_mock_view_add_remove_child_method(visual, mainView)
+    __visual_attach_connect_handler(visual, mainView)
+    __visual_attach_disconnect_handler(visual, mainView)
+    __visual_attach_key_handler(visual, mainView)
     
     currentFrame = -1
     compiledFrames = array_map(frames, lambda f, *_: __parse_colored_text(f)[0])
@@ -153,29 +308,49 @@ def _visual_show_frame_sequence(
         nonlocal currentFrame
         return setFrame(currentFrame - 1)
     handle = None
-    def isAttached():
-        currentView = mainView
-        while currentView["superview"] is not None and currentView["superview"] is not visual["toplevel"]:
-            currentView = currentView["superview"]
-        return currentView["superview"] is visual["toplevel"]
+    onConnectCb = None
+    onDisconnectCb = None
+    def onConnect(args):
+        nonlocal onConnectCb
+        _visual_remove_connect_listener(visual, mainView, onConnectCb)
+        onConnectCb = None
+        play(*args)
+    def onDisconnect(args):
+        nonlocal handle, onDisconnectCb, onConnectCb
+        _visual_remove_disconnect_listener(visual, mainView, onDisconnectCb)
+        onDisconnectCb = None
+        clear_interval(handle)
+        handle = None
+        onConnectCb = lambda: onConnect(args)
+        _visual_add_connect_listener(visual, mainView, onConnectCb)
     def play(fps: float = 60, loopFrame = False) -> None:
         nonlocal handle
         if handle is not None:
             stop()
         def loop():
             nonlocal handle
-            if not isAttached():
-                stop()
-                return
             if nextFrame():
                 return
             if not loopFrame:
                 stop()
                 return
             setFrame(0)
+        if not _visual_is_connected(visual, mainView):
+            onConnectCb = lambda: onConnect((fps, loopFrame))
+            _visual_add_connect_listener(visual, mainView, onConnectCb)
+            return
+        onDisconnectCb = lambda: onDisconnect((fps, loopFrame))
+        _visual_add_disconnect_listener(visual, mainView, onDisconnectCb)
         handle = set_interval(loop, 1000 / fps)
     def stop() -> None:
-        nonlocal handle
+        nonlocal handle, onConnectCb, onDisconnectCb
+        if onConnectCb is not None:
+            _visual_remove_connect_listener(visual, mainView, onConnectCb)
+            onConnectCb = None
+        if onDisconnectCb is not None:
+            _visual_remove_disconnect_listener(visual, mainView, onDisconnectCb)
+            onDisconnectCb = None
+        _visual_remove_connect_listener(visual, mainView, onConnect)
         if handle is None:
             return
         clear_interval(handle)
@@ -185,7 +360,6 @@ def _visual_show_frame_sequence(
     mainView["previousFrame"] = previousFrame
     mainView["play"] = play
     mainView["stop"] = stop
-    __visual_attach_key_handler(visual, mainView)
     if parent is not None:
         view_add_child(parent, mainView)
     else:
@@ -249,18 +423,23 @@ def _visual_show_simple_dialog(
     text_formatter_set_horizontal_alignment(textFormatter, horizontalAlignment)
     text_formatter_set_vertical_alignment(textFormatter, verticalAlignment)
 
+    __visual_attach_mock_view_add_remove_child_method(visual, mainView)
+    __visual_attach_connect_handler(visual, mainView)
+    __visual_attach_disconnect_handler(visual, mainView)
+    __visual_attach_key_handler(visual, mainView)
+
     mainView["titleView"] = titleView
     mainView["contentView"] = contentView
     mainView["setTitle"] = lambda t: text_formatter_set_text(view_get_text_formatter(titleView), __parse_colored_text(t)[0])
     mainView["setContent"] = lambda t: text_formatter_set_text(view_get_text_formatter(contentView), __parse_colored_text(t)[0])
-    __visual_attach_key_handler(visual, mainView)
     if parent is not None:
         view_add_child(parent, mainView)
     else:
         _visual_set_view(visual, mainView)
     return mainView
 
-def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> tuple[Callable[[__Text], None], Callable[[__Text], Promise[str]], Callable[[str, Any], None]]:
+_ConsoleMock = tuple[Callable[[__Text], None], Callable[[__Text], Promise[str]], Callable[[str, Any], None]]
+def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
     driver = visual["driver"]
     setTitle = view["setTitle"]
     setContent = view["setContent"]
@@ -273,33 +452,51 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> tuple[Callable[[
     flags = dict_with(
         dict(
             keySpeed=-1, # characters per second
+            keyAnimationAllowSkip=True,
             hasTitle=False,
             selectableWaitAfterContent=True,
             selectableClearAfterSelection=True,
             selectableAllowEscape=True,
             inputWaitAfterContent=True,
             inputAllowEscape=True,
+            doNotRaiseSignal=False
         ),
         **kwargs
     )
-    def doDraw():
-        nonlocal lastDrawing, contentDrawnPosition
+    printKeyListenerAttached = False
+    def onPrintKey(event: KeyEvent):
+        nonlocal contentDrawnPosition
+        if event.key == "Up" or event.key == "Down" or event.key == "ControlCR" or event.key == "ControlLF":
+            if not flags["keyAnimationAllowSkip"]:
+                return
+            contentDrawnPosition = len(content)
+            doPrintDraw()
+    def doPrintDraw():
+        nonlocal lastDrawing, contentDrawnPosition, printKeyListenerAttached
+        if not _visual_is_connected(visual, view):
+            return
         now = __now()
         deltaTime = now - lastDrawing if lastDrawing is not None else 0
         lastDrawing = now
         if int(contentDrawnPosition) == len(content):
             lastDrawing = None
+            if printKeyListenerAttached:
+                _visual_remove_key_listener(visual, view, onPrintKey)
+                printKeyListenerAttached = False
             for drawingOnComplete in array_splice(drawingOnCompletes, 0):
                 drawingOnComplete()
             return
+        if not printKeyListenerAttached:
+            _visual_add_key_listener(visual, view, onPrintKey)
+            printKeyListenerAttached = True
         keySpeed = flags["keySpeed"]
         advancePosition = keySpeed * deltaTime / 1000 if keySpeed != -1 else len(content) - contentDrawnPosition
         contentDrawnPosition += advancePosition
         contentDrawnPosition = min(contentDrawnPosition, len(content))
         drawnContent = array_slice(content, 0, int(contentDrawnPosition))
         setContent(drawnContent)
-        set_timeout(doDraw, 15)
-    def waitDrawComplete():
+        set_timeout(doPrintDraw, 15)
+    def waitPrintDrawComplete():
         if lastDrawing is None:
             return promise_resolved(None)
         def executor(resolve, _):
@@ -315,13 +512,14 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> tuple[Callable[[
         if indexEnd == -1:
             return None
         return array_slice(text, indexStart, indexEnd)
+    _visual_add_connect_listener(visual, view, doPrintDraw)
     selectableIndex = -1
     selectables: list[View] = []
     selectableDescription: View = None
     selectableListeners: list[Callable[[str], None]] = []
     lastSelectableIndex = -1
     lastSelectables: list[View] = []
-    def newSelectable(message: __Text, description: __Text, /, id: str = None) -> None:
+    def newSelectable(message: __Text, description: __Text, /, id: Any = None) -> None:
         nonlocal contentLastAttribute
         message, contentLastAttribute = __parse_colored_text(message, contentLastAttribute)
         if description is not None:
@@ -448,14 +646,14 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> tuple[Callable[[
         array_push(content, *additionalContent)
         if lastDrawing is not None:
             return
-        doDraw()
+        doPrintDraw()
     inputParent: View = None
     inputDescription: View = None
     inputIndex = -1
     inputViews: list[View] = []
     lastInputIndex = -1
     lastInputViews: list[View] = []
-    def newInput(message: __Text, description: __Text, /, renderer: Callable[[list[Rune]], list[Rune]] = None):
+    def newInput(message: __Text, description: __Text, /, renderer: Callable[[list[Rune]], list[Rune]] = None, signal: AbortSignal = None):
         nonlocal inputIndex, contentLastAttribute
         message, contentLastAttribute = __parse_colored_text(message, contentLastAttribute)
         if description is not None:
@@ -515,6 +713,15 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> tuple[Callable[[
             inputIndex = len(inputViews) - 1
         layoutInput()
         inputChange()
+        if signal is not None:
+            def cleanUp():
+                index = array_index_of(inputViews, inputView)
+                if index == -1:
+                    return
+                array_splice(inputViews, inputView)
+                layoutInput()
+                inputChange()
+            promise = encapsulatePromise(promise, dict(signal=signal), cleanUp)
         return promise
     def clearInputs():
         array_splice(inputViews, 0)
@@ -733,26 +940,49 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> tuple[Callable[[
             del kwargs["selectable"]
             do = lambda *_: newSelectable(message, args[0] if len(args) > 0 else None, **kwargs)
             if flags["selectableWaitAfterContent"]:
-                return promise_then(waitDrawComplete(), do)
+                return encapsulatePromise(promise_then(waitPrintDrawComplete(), do), kwargs)
             do()
             return
         do = lambda *_: newInput(message, args[0] if len(args) > 0 else None, **kwargs)
         if flags["inputWaitAfterContent"]:
-            return promise_then(waitDrawComplete(), do)
+            return encapsulatePromise(promise_then(waitPrintDrawComplete(), do), kwargs)
         return do()
-    def getRootView():
-            currentView = view
-            while currentView["superview"] is not None and currentView["superview"] is not visual["toplevel"]:
-                currentView = currentView["superview"]
-            return currentView
+    def encapsulatePromise(promise: Promise[Any], kwargs: dict, onSignalCb: Callable[[], Any] = None) -> Promise[Any]:
+        if "signal" not in kwargs or kwargs["signal"] is None:
+            return promise
+        doneFirst = False
+        def onResolve(result):
+            nonlocal doneFirst
+            doneFirst = True
+            return result
+        promise = promise_then(promise, onResolve)
+        signal = kwargs["signal"]
+        signalPromise = promise_from_abortsignal(signal)
+        if flags["doNotRaiseSignal"]:
+            def onReject(_):
+                nonlocal doneFirst
+                if doneFirst:
+                    return signal
+                if onSignalCb is not None:
+                    onSignalCb()
+                return signal
+            signalPromise = promise_catch(signalPromise, onSignalCb)
+        elif onSignalCb is not None:
+            def onReject(reason):
+                nonlocal doneFirst
+                if not doneFirst:
+                    onSignalCb()
+                raise reason
+            signalPromise = promise_catch(signalPromise, onSignalCb)
+        return promise_race([promise, signalPromise])
     def metaAction(action: str, kwargs: dict) -> Any:
         nonlocal contentLastAttribute
         if action == "getVisual":
             return visual
         if action == "getRootView":
-            return getRootView()
+            return _visual_get_root_view(visual, view)
         if action == "setAsCurrentView":
-            _visual_set_view(visual, getRootView())
+            _visual_set_view(visual, _visual_get_root_view(visual, view))
             return
         if action == "setAttribute":
             contentLastAttribute = kwargs["value"]
@@ -774,17 +1004,21 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> tuple[Callable[[
             contentLastAttribute = RuneAttribute_clear
             clearSelectables()
             clearInputs()
-            doDraw()
+            doPrintDraw()
             return
         if action == "waitContent":
-            return waitDrawComplete()
+            return encapsulatePromise(waitPrintDrawComplete(), kwargs)
         if action == "clearSelectables":
             clearSelectables()
             return
         if action == "select":
             def executor(resolve, _):
                 array_push(selectableListeners, lambda s: resolve(s))
-            return promise_new(executor)
+            def cleanup():
+                if not flags["selectableClearAfterSelection"]:
+                    return
+                clearSelectables()
+            return encapsulatePromise(promise_new(executor), kwargs, cleanup)
         if action == "clearInputs":
             clearInputs()
             return
@@ -866,6 +1100,7 @@ def __load_splash_suspendable(state, args):
             frameProgress = 1 / len(rawFrames)
             progress(i * frameProgress + endOffset / len(rawFrame) * frameProgress)
         return promise_from_wait(0, 1), rawFrames, processedFrames, progress, i, endOffset, lastAttribute
+    return SuspendableExhausted
 def __reverse_background_foreground(text: list[Rune]) -> list[Rune]:
     def reverseAttribute(attribute: RuneAttribute) -> RuneAttribute:
         newForeground = attribute.background

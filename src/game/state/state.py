@@ -9,7 +9,7 @@ _UserSchemaType = NamedTuple("User", [
     ("id", int),
     ("username", str),
     ("password", str),
-    ("role", Literal["admin", "agent", "system"]), # Battle in arena or wild area has a monster whose user has the role system (basically bot account).
+    ("role", Literal["admin", "agent", "system", "npc"]), # Battle in arena or wild area has a monster whose user has the role system (basically bot account).
     ("money", float),
 ])
 _UserSchemaProperties = [
@@ -86,6 +86,7 @@ _BattleSchemaType = NamedTuple("Battle", [
     ("monster1Id", Optional[int]), # Reference to player 1's currently fighting monster, reference to inventoryMonsterDatabase, might be None if the player haven't chose the monster yet, or do not have any remaining monster
     ("monster2Id", Optional[int]), # Reference to player 2's currently fighting monster, reference to inventoryMonsterDatabase, might be None if the player haven't chose the monster yet, or do not have any remaining monster
     ("verdict", Literal[-1, 0, 1, 2, 3, 4]), # -1 means the battle is not finished yet, 0 means draw, 1 means player 1 wins, 2 means player 2 wins, 3 means player 1 escaped, 4 means player 2 escaped
+    ("handler", str), # Handler or logic for current battle
 ])
 _BattleSchemaProperties = [
     database_property_new("id", int, lambda x: int(x), lambda x: str(x)),
@@ -95,6 +96,7 @@ _BattleSchemaProperties = [
     database_property_new("monster1Id", int, lambda x: int(x) if x != "" else None, lambda x: str(x) if x != None else ""),
     database_property_new("monster2Id", int, lambda x: int(x) if x != "" else None, lambda x: str(x) if x != None else ""),
     database_property_new("verdict", int, lambda x: int(x), lambda x: str(x)),
+    database_property_new("handler", str, lambda x: x, lambda x: x),
 ]
 _BattleSchema = database_schema_new("csv", _BattleSchemaType, _BattleSchemaProperties)
 _BattleDatabase = Database[_BattleSchemaType]
@@ -102,16 +104,14 @@ _BattleDatabase = Database[_BattleSchemaType]
 _ArenaSchemaType = NamedTuple("Arena", [
     ("id", int),
     ("playerId", int), # Reference to userDatabase
-    ("stage", int), # Stage is between 1 to 5.
-    ("battleId", Optional[int]), # Reference to battleDatabase.
-    ("nextId", Optional[int]), # Reference to arenaDatabase, only available if user wins and the stage is not the final stage.
+    ("battleIds", list[Optional[int]]), # Reference to battleDatabase. The last id might be null, if it's not null it means the last battle still happening. This array should have at least one element.
+    ("handler", str), # Handler or logic for current arena
 ])
 _ArenaSchemaProperties = [
     database_property_new("id", int, lambda x: int(x), lambda x: str(x)),
     database_property_new("playerId", int, lambda x: int(x), lambda x: str(x)),
-    database_property_new("stage", int, lambda x: int(x), lambda x: str(x)),
-    database_property_new("battleId", int, lambda x: int(x) if x != "" else None, lambda x: str(x) if x != None else ""),
-    database_property_new("nextId", int, lambda x: int(x) if x != "" else None, lambda x: str(x) if x != None else ""),
+    database_property_new("battleIds", list[int], lambda x: array_map(string_split(x, "|"), lambda v: int(v) if len(v) > 0 else None), lambda x: array_join(array_map(x, lambda v: str(v) if v is not None else ""), "|")),
+    database_property_new("handler", str, lambda x: x, lambda x: x),
 ]
 _ArenaSchema = database_schema_new("csv", _ArenaSchemaType, _ArenaSchemaProperties)
 _ArenaDatabase = Database[_ArenaSchemaType]
@@ -166,6 +166,7 @@ _InventoryMonsterSchemaType = NamedTuple("InventoryMonster", [
     ("ownerId", int), # Reference to userDatabase
     ("referenceId", int), # Reference to monsterDatabase. Note: this schema does not have property "level", because the information is already available in referenced monster.
     ("name", str), # This field might be null, if it is null then display the name from referenced monster default name. This is a way for user to customise the name.
+    ("experiencePoints", float),
     ("healthPoints", float), # These fields are modifiers, usually it should be copied from the fields in referenced monster.
     ("attackPower", float),
     ("defensePower", float),
@@ -176,12 +177,13 @@ _InventoryMonsterSchemaProperties = [
     database_property_new("ownerId", int, lambda x: int(x), lambda x: str(x)),
     database_property_new("referenceId", int, lambda x: int(x), lambda x: str(x)),
     database_property_new("name", str, lambda x: x, lambda x: x),
+    database_property_new("experiencePoints", float, lambda x: float(x), lambda x: str(x)),
     database_property_new("healthPoints", float, lambda x: float(x), lambda x: str(x)),
     database_property_new("attackPower", float, lambda x: float(x), lambda x: str(x)),
     database_property_new("defensePower", float, lambda x: float(x), lambda x: str(x)),
     database_property_new("activePotions", list[tuple[float, float, int]], 
-        lambda x: array_map(string_split(x, "|"), lambda v, *_: (float(string_split(v, "`")[0]), float(string_split(v, "`")[1]), int(string_split(v, "`")[2]))), 
-        lambda x: array_join(array_map(x, lambda v, *_: str(v[0]) + "`" + str(v[1]) + "`" + str(v[2]), "|"))),
+        lambda x: array_filter(array_map(string_split(x, "|"), lambda v, *_: (float(string_split(v, "`")[0]), float(string_split(v, "`")[1]), int(string_split(v, "`")[2])) if len(v) > 0 else None), lambda p, *_: p is not None), 
+        lambda x: array_join(array_map(x, lambda v, *_: (str(v[0]) + "`" + str(v[1]) + "`" + str(v[2])) if v is not None else "", "|"))),
 ]
 _InventoryMonsterSchema = database_schema_new("csv", _InventoryMonsterSchemaType, _InventoryMonsterSchemaProperties)
 _InventoryMonsterDatabase = Database[_InventoryMonsterSchemaType]

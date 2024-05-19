@@ -1,9 +1,25 @@
+from utils.primordials import *
 from game.state import *
 from game.database import *
-from typing import Optional
+from typing import Optional, Union, Callable
+
+def _user_get(gameState: GameState, userId: int) -> UserSchemaType:
+    userDatabase = gamestate_get_user_database(gameState)
+    return database_get_entry_at(userDatabase, userId)
+
+def _user_set(gameState: GameState, userId: int, modifier: Union[UserSchemaType, Callable[[UserSchemaType], UserSchemaType]]) -> UserSchemaType:
+    userDatabase = gamestate_get_user_database(gameState)
+    user = modifier(database_get_entry_at(userDatabase, userId)) if callable(modifier) else modifier
+    database_set_entry_at(userDatabase, userId, user)
+    return user
+
+def _user_get_all_npcs(gameState: GameState) -> list[UserSchemaType]:
+    userDatabase = gamestate_get_user_database(gameState)
+    userEntries = database_get_entries(userDatabase)
+    return array_filter(userEntries, lambda u, *_: u.role == "npc")
 
 # Do NOT expose this function in __init__.py. See note in __init__.py
-def _user_hash_password(password: str) -> str:
+def __user_hash_password(password: str) -> str:
     pass 
 
 def _user_is_logged_in(gameState: GameState) -> bool:
