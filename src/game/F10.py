@@ -130,7 +130,6 @@ user_id = read_csv("user.csv")
 baca_oc = read_csv("user.csv")
 x = 0
 
-pilih_id = int(input("Ini test id nomor berapa: "))
 oc = baca_oc[pilih_id][4]
 
 while x == 0:
