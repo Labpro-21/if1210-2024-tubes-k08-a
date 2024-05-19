@@ -1,90 +1,114 @@
-def read_csv(file_name):
-    data = []
-    with open(file_name, 'r') as file:
-        for line in file:
-            row = custom_split(line.strip())
-            data.append(row)
-    return data
+from utils.primordials import *
+from game.state import *
+from game.database import *
+from game.potion import *
+from typing import Callable, Optional, Union
 
-def custom_split(line, delimiter=';'):
-    parts = []
-    current_part = ''
-    inside_quotes = False
+def _inventory_monster_get(gameState: GameState, inventoryMonsterId: int) -> InventoryMonsterSchemaType:
+    inventoryMonsterDatabase = gamestate_get_inventory_monster_database(gameState)
+    return database_get_entry_at(inventoryMonsterDatabase, inventoryMonsterId)
 
-    for char in line:
-        if char == delimiter and not inside_quotes:
-            parts.append(current_part)
-            current_part = ''
-        elif char == '"':
-            inside_quotes = not inside_quotes
-        else:
-            current_part += char
+def _inventory_monster_set(gameState: GameState, inventoryMonsterId: int, modifier: Union[InventoryMonsterSchemaType, Callable[[InventoryMonsterSchemaType], InventoryMonsterSchemaType]]) -> InventoryMonsterSchemaType:
+    inventoryMonsterDatabase = gamestate_get_inventory_monster_database(gameState)
+    inventoryMonster = modifier(database_get_entry_at(inventoryMonsterDatabase, inventoryMonsterId)) if callable(modifier) else modifier
+    database_set_entry_at(inventoryMonsterDatabase, inventoryMonsterId, inventoryMonster)
+    return inventoryMonster
 
-    parts.append(current_part)
-    return parts
+def _inventory_monster_new(gameState: GameState) -> InventoryMonsterSchemaType:
+    inventoryMonsterDatabase = gamestate_get_inventory_monster_database(gameState)
+    inventoryMonsterId = database_get_entries_length(inventoryMonsterDatabase)
+    inventoryMonster = InventoryMonsterSchemaType(
+        id=inventoryMonsterId,
+        ownerId=None,
+        referenceId=None,
+        name=None,
+        experiencePoints=None,
+        healthPoints=None,
+        attackPower=None,
+        defensePower=None,
+        activePotions=None,
+    )
+    database_set_entry_at(inventoryMonsterDatabase, inventoryMonsterId, inventoryMonster)
+    return inventoryMonster
 
-read_csv("item_inventory.csv")
-read_csv("monster_inventory.csv")
-read_csv("database_user.csv")
-read_csv("monster.csv")
-read_csv("user.csv")
+def _inventory_monster_get_user_monsters(gameState: GameState, userId: int) -> list[InventoryMonsterSchemaType]:
+    inventoryMonsterDatabase = gamestate_get_inventory_monster_database(gameState)
+    inventoryMonsterEntries = database_get_entries(inventoryMonsterDatabase)
+    return array_filter(inventoryMonsterEntries, lambda m, *_: m.ownerId == userId)
 
-mons_id = read_csv("monster_inventory.csv")
-mons_Lvl = read_csv("monster_inventory.csv")
-mons = read_csv("monster.csv")
-user_id = read_csv("user.csv")
-baca_oc = read_csv("user.csv")
-item_inv = read_csv("item_inventory.csv")
+def _inventory_monster_get_calculated_health_points(gameState: GameState, inventoryMonster: InventoryMonsterSchemaType) -> float:
+    activePotions = array_map(inventoryMonster.activePotions, lambda p, *_: (p[0], p[1], potion_get(gameState, p[2])))
+    activePotions = array_filter(activePotions, lambda p, *_: potion_is_type_definite(p[2].type) and potion_get_type_generic(p[2].type) == "healing")
+    baseAmounts = array_reduce(activePotions, lambda c, p, *_: c + potion_get_calculated_definite_base_amount(p[2], [1]), 0)
+    multiplierAmounts = array_reduce(activePotions, lambda c, p, *_: c * potion_get_calculated_definite_multiplier_amount(p[2], p[1]), inventoryMonster.healthPoints)
+    return baseAmounts + multiplierAmounts
 
-def show_mons_inv():
-    for i in range (1, len(mons_id)):
-        id = mons_id[i][0]
-        m_type = mons[i][1]
-        hp = mons[i][4]
-        oc = baca_oc[i][4]
-        m_lvl = mons_Lvl[i][2]
-        if gamestate_get_user_id() == id:
-            print(f"============ INVENTORY LIST (User ID: {id}) ============")
-            print(f" Jumlah O.W.C.A. Coin-mu sekarang {oc}.")
-            for monster in len(mons_id):
-                print(f"{i}. Monster      (Name: {m_type}, Lvl: {m_lvl}, HP: {hp})")
+def _inventory_monster_get_calculated_attack_power(gameState: GameState, inventoryMonster: InventoryMonsterSchemaType) -> float:
+    activePotions = array_map(inventoryMonster.activePotions, lambda p, *_: (p[0], p[1], potion_get(gameState, p[2])))
+    activePotions = array_filter(activePotions, lambda p, *_: potion_is_type_definite(p[2].type) and potion_get_type_generic(p[2].type) == "strength")
+    baseAmounts = array_reduce(activePotions, lambda c, p, *_: c + potion_get_calculated_definite_base_amount(p[2], [1]), 0)
+    multiplierAmounts = array_reduce(activePotions, lambda c, p, *_: c * potion_get_calculated_definite_multiplier_amount(p[2], p[1]), inventoryMonster.attackPower)
+    return baseAmounts + multiplierAmounts
 
-def show_id_potion():
-    for j in range (len(mons_id+1),len(mons_id) + len(item_inv)):
-        id_1 = item_inv[j][0]
-        type_1 = item_inv[j][0]
-        Qty = item_inv[j][1]
-        if gamestate_get_user_id() == id_1:
-            print(f"{j}. Potion       (Type: {type_1}, Qty: {Qty})")
+def _inventory_monster_get_calculated_defense_power(gameState: GameState, inventoryMonster: InventoryMonsterSchemaType) -> float:
+    activePotions = array_map(inventoryMonster.activePotions, lambda p, *_: (p[0], p[1], potion_get(gameState, p[2])))
+    activePotions = array_filter(activePotions, lambda p, *_: potion_is_type_definite(p[2].type) and potion_get_type_generic(p[2].type) == "resilience")
+    baseAmounts = array_reduce(activePotions, lambda c, p, *_: c + potion_get_calculated_definite_base_amount(p[2], [1]), 0)
+    multiplierAmounts = array_reduce(activePotions, lambda c, p, *_: c * potion_get_calculated_definite_multiplier_amount(p[2], p[1]), inventoryMonster.defensePower)
+    return baseAmounts + multiplierAmounts
 
-input1 = int(input())
+def _inventory_monster_use_potion(gameState: GameState, inventoryMonster: InventoryMonsterSchemaType, potion: PotionSchemaType) -> InventoryMonsterSchemaType:
+    gameTime = gamestate_time(gameState)
+    newHealthPoints = inventoryMonster.healthPoints
+    newAttackPower = inventoryMonster.attackPower
+    newDefensePower = inventoryMonster.defensePower
+    newActivePotions = array_slice(inventoryMonster.activePotions)
+    while potion is not None:
+        additionalHealthPoints, additionalAttackPower, additionalDefensePower, newActivePotion = __tick_potion(gameTime, (gameTime - 1, potion.duration, potion))
+        newHealthPoints += additionalHealthPoints
+        newAttackPower += additionalAttackPower
+        newDefensePower += additionalDefensePower
+        if newActivePotion is not None:
+            array_push(newActivePotions, (newActivePotion[0], newActivePotion[1], newActivePotion[2].id))
+        potion = potion_get(gameState, potion.nextId)
+    return _inventory_monster_set(gameState, inventoryMonster.id, namedtuple_with(inventoryMonster, healthPoints=newHealthPoints, attackPower=newAttackPower, defensePower=newDefensePower, activePotions=newActivePotions))
 
-def mons_inv_detail():
-    for i in range (1, len(mons_id)):
-        id = mons_id[i][0]
-        m_type = mons[i][1]
-        atk_power = mons[i][2]
-        def_power = mons[i][3]
-        hp = mons[i][4]
-        m_lvl = mons_Lvl[i][2]
-        for i in range (1, len(mons_id)) :
-            if gamestate_get_user_id() == id:
-                if input1 == mons_id[i][2]:
-                    print("Monster")
-                    print(f"Name      : {m_type}")
-                    print(f"ATK Power : {atk_power}")
-                    print(f"DEF Power : {def_power}")
-                    print(f"HP        : {hp}")
-                    print(f"Level     : {m_lvl}")
+def _inventory_monster_tick(gameState: GameState, inventoryMonster: InventoryMonsterSchemaType) -> InventoryMonsterSchemaType:
+    def tickPotions(inventoryMonster: InventoryMonsterSchemaType) -> InventoryMonsterSchemaType:
+        gameTime = gamestate_time(gameState)
+        activePotions = array_map(inventoryMonster.activePotions, lambda p, *_: (p[0], p[1], potion_get(gameState, p[2])))
+        newHealthPoints = inventoryMonster.healthPoints
+        newAttackPower = inventoryMonster.attackPower
+        newDefensePower = inventoryMonster.defensePower
+        newActivePotions: list[tuple[float, float, int]] = []
+        for activePotion in activePotions:
+            additionalHealthPoints, additionalAttackPower, additionalDefensePower, newActivePotion = __tick_potion(gameTime, activePotion)
+            newHealthPoints += additionalHealthPoints
+            newAttackPower += additionalAttackPower
+            newDefensePower += additionalDefensePower
+            if newActivePotion is not None:
+                array_push(newActivePotions, (newActivePotion[0], newActivePotion[1], newActivePotion[2].id))
+        return namedtuple_with(inventoryMonster, healthPoints=newHealthPoints, attackPower=newAttackPower, defensePower=newDefensePower, activePotions=newActivePotions)
+    return _inventory_monster_set(gameState, inventoryMonster.id, tickPotions(inventoryMonster))
 
-def show_potion_detail():
-    for j in range (len(mons_id+1),len(mons_id) + len(item_inv)):
-        id_1 = item_inv[j][0]
-        type_1 = item_inv[j][0]
-        Qty = item_inv[j][1]
-        for j in range (len(mons_id)+1,len(mons_id) + len(item_inv)):
-            if gamestate_get_user_id() == id_1:
-                if input1 == j:
-                    print("Potion")
-                    print(f"Type      : {type_1}")
-                    print(f"Quantity  : {Qty}")
+def __tick_potion(gameTime: float, activePotion: tuple[float, float, PotionSchemaType]) -> tuple[float, float, float, Optional[tuple[float, float, PotionSchemaType]]]:
+    deltaTime = gameTime - activePotion[0]
+    remainingTime = activePotion[1] - deltaTime
+    potion = activePotion[2]
+    additionalHealthPoints = 0
+    additionalAttackPower = 0
+    additionalDefensePower = 0
+    if potion_is_type_indefinite(potion.type):
+        potionType = potion_get_type_generic(potion.type)
+        if potionType == "healing":
+            additionalHealthPoints += potion_get_calculated_indefinite_amount(potion, remainingTime, deltaTime)
+        if potionType == "strength":
+            additionalAttackPower += potion_get_calculated_indefinite_amount(potion, remainingTime, deltaTime)
+        if potionType == "resilience":
+            additionalDefensePower += potion_get_calculated_indefinite_amount(potion, remainingTime, deltaTime)
+    if remainingTime <= 0:
+        return (additionalHealthPoints, additionalAttackPower, additionalDefensePower, None)
+    newActivePotion = tuple_with(activePotion, _0=gameTime, _1=remainingTime)
+    return (additionalHealthPoints, additionalAttackPower, additionalDefensePower, newActivePotion)
+
+# immediate permanent buffs: set type="HealthIndefinite", duration=1

@@ -6,11 +6,11 @@ const __dirname = process.cwd();
 
 (async () => {
 	const directories = (await fs.readdir(__dirname))
-		.filter(f => fs0.statSync(path.join(__dirname, f)).isDirectory())
+		.filter(f => fs0.statSync(path.join(__dirname, f)).isDirectory() && !f.startsWith("_"))
 		.map(d => path.join(__dirname, d));
 	for(const directory of directories) {
 		const files = (await fs.readdir(directory))
-			.filter(f => fs0.statSync(path.join(directory, f)).isFile() && f.endsWith(".py") && f != "__init__.py")
+			.filter(f => fs0.statSync(path.join(directory, f)).isFile() && f.endsWith(".py") && f != "__init__.py" && !f.startsWith("_"))
 			.map(f => path.join(directory, f));
 		let result = "";
 		for(const file of files) {
