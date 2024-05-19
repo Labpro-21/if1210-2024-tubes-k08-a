@@ -34,12 +34,14 @@ tabel_Mons_inv = read_csv("monster_inventory.csv")
 baca_user_id = read_csv("user.csv")
 baca_oc = read_csv("user.csv")
 
-user_id =str(input("masukkan id dulu:"))   #memisalkan user_id, karna aku belum tau user id mana yang dipakai(harus liat dari login)
+user_database = gamestate_get_user_id(gameState) #masih harus diperbaiki karena harus cek id mana yang login
+user_entry = database_get_entries_at(user_database, user_id)
+oc = user_entry.money
 
 j=1
 print("============ MONSTER LIST ============")
 for i in range (len(tabel_Mons_inv)):
-    if tabel_Mons_inv[i][0] == user_id  :
+    if tabel_Mons_inv[i][0] == user_database  :
         level = tabel_Mons_inv[i][2]
         id = tabel_Mons_inv[i][1]
         for i in range (len(tabel_Mons)):
@@ -53,15 +55,12 @@ print ("2. Level 2 -> Level 3: 500 OC")
 print ("3. Level 3 -> Level 4: 800 OC")
 print ("4. Level 4 -> Level 5: 1000 OC")
 
-for i in range (len(baca_oc)):
-    if baca_oc[i][0] == user_id:
-        oc = baca_oc[i][4]
-        print(oc)
+
 harga = [0,300,500,800,1000]
 choice = int(input("Pilih monster: "))
 j = 0
 for i in range (len(tabel_Mons_inv)):
-    if tabel_Mons_inv[i][0] == user_id  :
+    if tabel_Mons_inv[i][0] == user_database  :
         level = tabel_Mons_inv[i][2]
         id = tabel_Mons_inv[i][1]
         for k in range (len(tabel_Mons)):
@@ -71,7 +70,6 @@ for i in range (len(tabel_Mons_inv)):
                     levels = int(level)
                     levelb = int(level)
                     ocs = int(oc)
-                    print(ocs)
                     if levels >= 5:
                         print("Maaf, monster yang Anda pilih sudah memiliki level maksimum")
                     else:
