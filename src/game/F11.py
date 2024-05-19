@@ -34,7 +34,7 @@ tabel_Mons_inv = read_csv("monster_inventory.csv")
 baca_user_id = read_csv("user.csv")
 baca_oc = read_csv("user.csv")
 
-user_id = "3"   #memisalkan user_id, karna aku belum tau user id mana yang dipakai(harus liat dari login)
+user_id =str(input("masukkan id dulu:"))   #memisalkan user_id, karna aku belum tau user id mana yang dipakai(harus liat dari login)
 
 j=1
 print("============ MONSTER LIST ============")
@@ -87,9 +87,7 @@ for i in range (len(tabel_Mons_inv)):
                                 levels = str(levels)
                                 sisa_ocs = str(sisa_ocs)
                                 baca_oc [i][4] = sisa_ocs
-                                tabel_Mons_inv[i][2] = levels
-                                print(tabel_Mons_inv)
-                                print(baca_oc)
+                                tabel_Mons_inv[i][2] = level
                             else:
                                 print(f"OC Anda kurang, maka monster {tabel_Mons[j][1]} tidak dapat di-upgrade :(")
                         elif lanjut_upgrade == "N" or lanjut_upgrade == "n":
