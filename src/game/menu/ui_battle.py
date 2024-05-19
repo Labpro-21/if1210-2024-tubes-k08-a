@@ -6,7 +6,7 @@ from game.battle import *
 from game.monster import *
 from game.inventory import *
 from .menu import _menu_show_loading_splash
-from typing import NamedTuple, Optional, Any, TypedDict, Callable
+from typing import NamedTuple, Optional, TypedDict, Callable
 
 __MenuBattleHandlerCache = TypedDict("MenuBattleHandlerCache",
     phase=str,
@@ -14,40 +14,40 @@ __MenuBattleHandlerCache = TypedDict("MenuBattleHandlerCache",
     promise=Promise
 )
 __MenuBattleCache = NamedTuple("MenuBattle", [
-    ("gameState", GameState),
-    ("parent", View),
-    ("userId", int),
-    ("turn", int),
+    ("gameState", GameState), # expect not changed
+    ("parent", View), # expect not changed
+    ("turn", int), # expect not changed
+    ("abortSignal", AbortSignal), # expect not changed
     ("battle", BattleSchemaType),
-    ("battleHandler", Callable),
-    ("battleHandlerCache", __MenuBattleHandlerCache),
+    ("battleHandler", Callable), # expect not changed
+    ("battleHandlerCache", __MenuBattleHandlerCache), # expect not changed
     ("selfMonster", Optional[InventoryMonsterSchemaType]),
     ("opponentMonster", Optional[InventoryMonsterSchemaType]),
     ("selfMonsterSprite", Optional[str]),
     ("opponentMonsterSprite", Optional[str]),
-    ("mainView", View),
-    ("opponentStatView", View),
-    ("selfStatView", View),
-    ("battleView", View),
-    ("opponentMonsterFrame", View),
-    ("selfMonsterFrame", View),
+    ("mainView", View), # expect not changed
+    ("opponentStatView", View), # expect not changed
+    ("selfStatView", View), # expect not changed
+    ("battleView", View), # expect not changed
+    ("opponentMonsterFrame", View), # expect not changed
+    ("selfMonsterFrame", View), # expect not changed
     ("opponentMonsterAnimation", View),
     ("selfMonsterAnimation", View),
-    ("dialogView", View),
-    ("dialogConsole", View),
+    ("dialogView", View), # expect not changed
+    ("dialogConsole", ConsoleMock), # expect not changed
 ])
+
 def _menu_show_battle(state, args):
     cache: __MenuBattleCache = None
     battle: BattleSchemaType = None
     if state is SuspendableInitial:
-        gameState, parent, battle, battleHandler = args
-        userId = gamestate_get_user_id(gameState)
-        turn = 1 if battle.player1Id == userId else 2 if battle.player2Id == userId else None
+        gameState, parent, battle, turn, abortSignal = args
+        battleHandler = battle_ui_decode_handler(battle.handler)
         cache = __MenuBattleCache(
             gameState=gameState,
             parent=parent,
-            userId=userId,
             turn=turn,
+            abortSignal=abortSignal,
             battle=battle,
             battleHandler=battleHandler,
             battleHandlerCache=dict(
@@ -86,9 +86,7 @@ def _menu_show_battle(state, args):
         if selfMonsterSprite == cache.selfMonsterSprite and opponentMonsterSprite == cache.opponentMonsterSprite:
             visual = gamestate_get_visual(gameState)
             if cache.parent is not None:
-                visual_set_view(visual, cache.parent)
-                if "play" in cache.parent:
-                    cache.parent["play"](60, True)
+                visual_set_view(visual, visual_get_root_view(visual, cache.parent))
             elif cache.mainView is not None:
                 visual_set_view(visual, cache.mainView)
             return "reloadSprite", cache, intent
@@ -289,6 +287,11 @@ def _menu_show_battle(state, args):
         battleHandler = cache.battleHandler
         battleHandlerCache = cache.battleHandlerCache
         if battleHandlerCache["phase"] == "battle:end":
+            if cache.parent is not None:
+                view_remove_child(cache.parent, cache.mainView)
+            else:
+                visual = gamestate_get_visual(gameState)
+                visual_set_view(visual, None)
             return SuspendableReturn, None
         battleHandlerPromise = battleHandlerCache["promise"]
         if battleHandlerPromise is None:
@@ -310,5 +313,7 @@ def _menu_show_battle(state, args):
                 return "loop"
             battleHandlerPromise = promise_then(battleHandlerPromise, onResolved)
             battleHandlerCache["promise"] = battleHandlerPromise
+        # We can't just return from here if abortSignal is aborted. We rely on the handler
+        # to do so instead. Because it may handling saving to the database.
         return promise_race([promise_from_wait(30, "loop"), battleHandlerPromise]), cache
     return SuspendableExhausted

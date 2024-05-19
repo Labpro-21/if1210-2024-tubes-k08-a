@@ -1,5 +1,6 @@
 from utils.primordials import *
 from utils.coroutines import *
+from utils.console import *
 from game.state import *
 from game.user import *
 

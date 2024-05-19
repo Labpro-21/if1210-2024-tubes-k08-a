@@ -24,7 +24,8 @@ def _battle_new(gameState: GameState) -> BattleSchemaType:
         player2Id=None,
         monster1Id=None,
         monster2Id=None,
-        verdict=None
+        verdict=None,
+        handler=None,
     )
     database_set_entry_at(battleDatabase, battleId, battle)
     return battle

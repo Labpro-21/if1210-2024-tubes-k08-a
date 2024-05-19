@@ -12,6 +12,7 @@ battle_verdict_is_player_won = _battle_verdict_is_player_won
 battle_verdict_is_player_escaped = _battle_verdict_is_player_escaped
 battle_action_attack = _battle_action_attack
 
-from .ui_logic import _battle_ui_handler_wild_monster
+from .ui_logic import _battle_ui_decode_handler, _battle_ui_handler_wild_monster
 
+battle_ui_decode_handler = _battle_ui_decode_handler
 battle_ui_handler_wild_monster = _battle_ui_handler_wild_monster
