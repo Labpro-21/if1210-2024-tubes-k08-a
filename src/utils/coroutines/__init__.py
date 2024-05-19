@@ -1,11 +1,43 @@
-from .coroutines import _looper_new, _looper_get_current, _looper_closure, _looper_tick, _set_timeout, _set_interval, _clear_timeout, _clear_interval, _set_immediate
+from .coroutines import _Timer, _Pollable, _Looper, _looper_new, _looper_get_current, _ClosureType, _looper_closure, _looper_needs_tick, _looper_tick, _looper_tick_timers, _looper_tick_pollables, _looper_tick_immediates, _looper_tick_microtasks, _set_timeout, _set_interval, _clear_timeout, _clear_interval, _set_immediate, _next_tick, _PromiseState, _PromiseValue, _PromiseChainValue, Promise, _PromiseResolve, _PromiseReject, _promise_new, _as_promise, _promise_then, _promise_catch, _promise_finally, _promise_resolved, _promise_rejected, _promise_all, _promise_all_settled, _promise_any, _promise_race, _SuspendableInitial, _SuspendableReturn, _SuspendableExhausted, _promise_from_suspendable, _promise_from_wait
 
+Timer = _Timer
+Pollable = _Pollable
+Looper = _Looper
 looper_new = _looper_new
 looper_get_current = _looper_get_current
+ClosureType = _ClosureType
 looper_closure = _looper_closure
+looper_needs_tick = _looper_needs_tick
 looper_tick = _looper_tick
+looper_tick_timers = _looper_tick_timers
+looper_tick_pollables = _looper_tick_pollables
+looper_tick_immediates = _looper_tick_immediates
+looper_tick_microtasks = _looper_tick_microtasks
 set_timeout = _set_timeout
 set_interval = _set_interval
 clear_timeout = _clear_timeout
 clear_interval = _clear_interval
 set_immediate = _set_immediate
+next_tick = _next_tick
+PromiseState = _PromiseState
+PromiseValue = _PromiseValue
+PromiseChainValue = _PromiseChainValue
+Promise = Promise
+PromiseResolve = _PromiseResolve
+PromiseReject = _PromiseReject
+promise_new = _promise_new
+as_promise = _as_promise
+promise_then = _promise_then
+promise_catch = _promise_catch
+promise_finally = _promise_finally
+promise_resolved = _promise_resolved
+promise_rejected = _promise_rejected
+promise_all = _promise_all
+promise_all_settled = _promise_all_settled
+promise_any = _promise_any
+promise_race = _promise_race
+SuspendableInitial = _SuspendableInitial
+SuspendableReturn = _SuspendableReturn
+SuspendableExhausted = _SuspendableExhausted
+promise_from_suspendable = _promise_from_suspendable
+promise_from_wait = _promise_from_wait

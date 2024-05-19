@@ -1,13 +1,15 @@
 from utils.primordials import *
+from utils.math import *
 from game.database import *
-from typing import TypedDict, NamedTuple, Literal, Union, Optional
+from .visual import _Visual, _visual_new
+from typing import TypedDict, NamedTuple, Literal, Optional
 from os import path
 
 _UserSchemaType = NamedTuple("User", [
     ("id", int),
     ("username", str),
     ("password", str),
-    ("role", Union[Literal["admin"], Literal["agent"], Literal["system"]]), # Battle in arena or wild area has a monster whose user has the role system (basically bot account).
+    ("role", Literal["admin", "agent", "system"]), # Battle in arena or wild area has a monster whose user has the role system (basically bot account).
     ("money", float),
 ])
 _UserSchemaProperties = [
@@ -24,21 +26,27 @@ _MonsterSchemaType = NamedTuple("Monster", [
     ("id", int),
     ("name", str), # Each level, an OWCA might have different name. Except when the user overrides it in inventoryMonsterDatabase.
     ("description", str),
-    ("type", str),
+    ("family", str),
     ("level", int),
     ("healthPoints", float), # All these fields are the base properties. These might get overriden in inventoryMonsterDatabase.
     ("attackPower", float),
     ("defensePower", float),
+    ("spriteDefault", str),
+    ("spriteFront", str),
+    ("spriteBack", str),
 ])
 _MonsterSchemaProperties = [
     database_property_new("id", int, lambda x: int(x), lambda x: str(x)),
     database_property_new("name", str, lambda x: x, lambda x: x),
     database_property_new("description", str, lambda x: x, lambda x: x),
-    database_property_new("type", str, lambda x: x, lambda x: x),
+    database_property_new("family", str, lambda x: x, lambda x: x),
     database_property_new("level", int, lambda x: int(x), lambda x: str(x)),
     database_property_new("healthPoints", float, lambda x: float(x), lambda x: str(x)),
     database_property_new("attackPower", float, lambda x: float(x), lambda x: str(x)),
     database_property_new("defensePower", float, lambda x: float(x), lambda x: str(x)),
+    database_property_new("spriteDefault", str, lambda x: x, lambda x: x),
+    database_property_new("spriteFront", str, lambda x: x, lambda x: x),
+    database_property_new("spriteBack", str, lambda x: x, lambda x: x),
 ]
 _MonsterSchema = database_schema_new("csv", _MonsterSchemaType, _MonsterSchemaProperties)
 _MonsterDatabase = Database[_MonsterSchemaType]
@@ -72,12 +80,12 @@ _PotionDatabase = Database[_PotionSchemaType]
 
 _BattleSchemaType = NamedTuple("Battle", [
     ("id", int),
-    ("turn", Union[Literal[0], Literal[1], Literal[2]]), # Which turn is it. 0 means have not been decided, 1 means player 1 turn, 2 means player 2 turn.
+    ("turn", Literal[0, 1, 2]), # Which turn is it. 0 means have not been decided, 1 means player 1 turn, 2 means player 2 turn.
     ("player1Id", int), # Reference to userDatabase
     ("player2Id", int), # Reference to userDatabase
     ("monster1Id", Optional[int]), # Reference to player 1's currently fighting monster, reference to inventoryMonsterDatabase, might be None if the player haven't chose the monster yet, or do not have any remaining monster
     ("monster2Id", Optional[int]), # Reference to player 2's currently fighting monster, reference to inventoryMonsterDatabase, might be None if the player haven't chose the monster yet, or do not have any remaining monster
-    ("verdict", Union[Literal[-1], Literal[0], Literal[1], Literal[2], Literal[3], Literal[4] ]), # -1 means the battle is not finished yet, 0 means draw, 1 means player 1 wins, 2 means player 2 wins, 3 means player 1 escaped, 4 means player 2 escaped
+    ("verdict", Literal[-1, 0, 1, 2, 3, 4]), # -1 means the battle is not finished yet, 0 means draw, 1 means player 1 wins, 2 means player 2 wins, 3 means player 1 escaped, 4 means player 2 escaped
 ])
 _BattleSchemaProperties = [
     database_property_new("id", int, lambda x: int(x), lambda x: str(x)),
@@ -94,7 +102,7 @@ _BattleDatabase = Database[_BattleSchemaType]
 _ArenaSchemaType = NamedTuple("Arena", [
     ("id", int),
     ("playerId", int), # Reference to userDatabase
-    ("stage", Union[Literal[1], Literal[2], Literal[3], Literal[4], Literal[5]]), # Stage is between 1 to 5.
+    ("stage", int), # Stage is between 1 to 5.
     ("battleId", Optional[int]), # Reference to battleDatabase.
     ("nextId", Optional[int]), # Reference to arenaDatabase, only available if user wins and the stage is not the final stage.
 ])
@@ -110,7 +118,7 @@ _ArenaDatabase = Database[_ArenaSchemaType]
 
 _ShopSchemaType = NamedTuple("Shop", [
     ("id", int),
-    ("referenceType", Union[Literal["monster"], Literal["item"]]), # A way for `referenceId` to know which database to look for.
+    ("referenceType", Literal["monster", "item"]), # A way for `referenceId` to know which database to look for.
     ("referenceId", int), # if `referenceType` is "monster" then look for `id` in monsterDatabase, otherwise look for `id` in potionDatabase
     ("cost", float),
 ])
@@ -188,7 +196,8 @@ _GameState = TypedDict("GameState",
     laboratoryDatabase=_LaboratoryDatabase, # readonly
     inventoryItemDatabase=_InventoryItemDatabase, # readonly
     inventoryMonsterDatabase=_InventoryMonsterDatabase, # readonly
-    userId=Optional[int] # If the user is logged in, the value must refer to userDatabase, otherwise it must be None
+    userId=Optional[int], # If the user is logged in, the value must refer to userDatabase, otherwise it must be None
+    visual=_Visual
 )
 
 def _gamestate_new(directory: str) -> _GameState:
@@ -220,6 +229,8 @@ def _gamestate_new(directory: str) -> _GameState:
         laboratoryDatabase=laboratoryDatabase,
         inventoryItemDatabase=inventoryItemDatabase,
         inventoryMonsterDatabase=inventoryMonsterDatabase,
+        userId=None,
+        visual=_visual_new()
     )
 def _gamestate_save(gameState: _GameState) -> None:
     database_save(gameState["userDatabase"])
@@ -251,6 +262,8 @@ def _gamestate_get_inventory_monster_database(gameState: _GameState) -> _Invento
     return gameState["inventoryMonsterDatabase"]
 def _gamestate_get_user_id(gameState: _GameState) -> Optional[int]:
     return gameState["userId"]
+def _gamestate_get_visual(gameState: _GameState) -> _Visual:
+    return gameState["visual"]
 def _gamestate_set_user_id(gameState: _GameState, userId: Optional[int]) -> None:
     gameState["userId"] = userId
 
@@ -260,4 +273,4 @@ def _gamestate_time(gameState: _GameState) -> float:
 def _gamestate_deltatime(gameState: _GameState) -> float:
     return 0
 def _gamestate_rand(gameState: _GameState) -> float:
-    return 0
+    return rand()

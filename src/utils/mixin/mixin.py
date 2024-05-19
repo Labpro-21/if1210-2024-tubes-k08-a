@@ -18,12 +18,14 @@ def _mixin_is_override(internal: dict[str, Any]) -> bool:
     stack = internal["__mixin_stack"]
     frame = sys._getframe(1)
     methodName = frame.f_code.co_name
-    if f"__mixin_${methodName}" not in internal:
-        return False
     internalMethodName = f"__mixin_${methodName}"
+    if internalMethodName not in internal:
+        return False
+    if len(stack) == 0:
+        return True
     override = internal[internalMethodName]
     overrideName = override.__name__
-    isCallSuper = array_find_index(stack, lambda s, *_: s[0] == f"{overrideName}#callSuper") != -1
+    isCallSuper = stack[len(stack) - 1][0] == f"{overrideName}#callSuper"
     return not isCallSuper
 
 def _mixin_call_override(internal: dict[str, Any], *args, **kwargs) -> Any:

@@ -2,34 +2,31 @@ from utils.primordials import *
 from utils.csv import *
 from typing import TypedDict, TypeVar, Callable, Union, Literal, Type, NamedTuple
 
-_T = TypeVar("_T")
+__T = TypeVar("__T")
 
 _DatabaseSchemaType = TypeVar("_DatabaseSchemaType", covariant=NamedTuple)
-_DatabaseSchemaFormat = Union[
-    Literal["inmemory"],
-    Literal["csv"]
-]
+_DatabaseSchemaFormat = Literal["inmemory", "csv"]
 
 _DatabaseProperty = TypedDict("DatabaseProperty",
     name=str, # readonly
-    type=Type[_T], # readonly
-    decode=Callable[[str], _T], # readonly
-    encode=Callable[[_T], str] # readonly
+    type=Type[__T], # readonly
+    decode=Callable[[str], __T], # readonly
+    encode=Callable[[__T], str] # readonly
 )
-_DatabaseSchema = TypedDict("DatabaseSchema",
+__DatabaseSchema = TypedDict("DatabaseSchema",
     format=_DatabaseSchemaFormat, # readonly
     type=_DatabaseSchemaType, # readonly
     properties=list[_DatabaseProperty] # readonly
 )
-_Database = TypedDict("Database",
+__Database = TypedDict("Database",
     handle=str, # readonly
-    schema=_DatabaseSchema, # readonly
+    schema=__DatabaseSchema, # readonly
     entries=list[tuple]
 )
-DatabaseSchema = Union[_DatabaseSchema, _DatabaseSchemaType]
-Database = Union[_Database, _DatabaseSchemaType]
+DatabaseSchema = Union[__DatabaseSchema, _DatabaseSchemaType]
+Database = Union[__Database, _DatabaseSchemaType]
 
-def _database_property_new(name: str, type: Type[_T], decode: Callable[[str], _T], encode: Callable[[_T], str]) -> _DatabaseProperty:
+def _database_property_new(name: str, type: Type[__T], decode: Callable[[str], __T], encode: Callable[[__T], str]) -> _DatabaseProperty:
     return dict(
         name=name,
         type=type,
@@ -38,15 +35,15 @@ def _database_property_new(name: str, type: Type[_T], decode: Callable[[str], _T
     )
 def _database_property_get_name(property: _DatabaseProperty) -> str:
     return property["name"]
-def _database_property_get_type(property: _DatabaseProperty) -> Type[_T]:
+def _database_property_get_type(property: _DatabaseProperty) -> Type[__T]:
     return property["type"]
-def _database_property_get_decode(property: _DatabaseProperty) -> Callable[[_T], str]:
+def _database_property_get_decode(property: _DatabaseProperty) -> Callable[[__T], str]:
     return property["decode"]
-def _database_property_get_encode(property: _DatabaseProperty) -> Callable[[str], _T]:
+def _database_property_get_encode(property: _DatabaseProperty) -> Callable[[str], __T]:
     return property["encode"]
-def _database_property_decode_value(property: _DatabaseProperty, value: str) -> _T:
+def _database_property_decode_value(property: _DatabaseProperty, value: str) -> __T:
     return property["decode"](value)
-def _database_property_encode_value(property: _DatabaseProperty, value: _T) -> str:
+def _database_property_encode_value(property: _DatabaseProperty, value: __T) -> str:
     return property["encode"](value)
 
 def _database_schema_new(format: _DatabaseSchemaFormat, type: Type[_DatabaseSchemaType], properties: list[_DatabaseProperty]) -> DatabaseSchema[_DatabaseSchemaType]:
@@ -122,6 +119,10 @@ def _database_get_entries_length(database: Database[_DatabaseSchemaType]) -> int
 def _database_get_entry_at(database: Database[_DatabaseSchemaType], i: int) -> _DatabaseSchemaType:
     return database["entries"][i]
 def _database_set_entry_at(database: Database[_DatabaseSchemaType], i: int, entry: _DatabaseSchemaType) -> None:
-    database["entries"][i] = entry
+    entries = database["entries"]
+    if i < len(entries):
+        entries[i] = entry
+    else:
+        array_push(entries, entry)
 def _database_delete_entry_at(database: Database[_DatabaseSchemaType], i: int) -> None:
     array_splice(database["entries"], i, 1)
