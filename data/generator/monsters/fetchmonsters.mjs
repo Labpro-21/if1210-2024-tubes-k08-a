@@ -78,5 +78,19 @@ const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 		m.spriteFront,
 		m.spriteBack
 	].join(";")).join("\n");
+	const monsterJson = monsters.map(m => ({
+		id: m.id,
+		name: m.name,
+		description: m.description,
+		familiy: m.familiy,
+		level: m.level,
+		healthPoints: m.healthPoints,
+		attackPower: m.attackPower,
+		defensePower: m.defensePower,
+		spriteDefault: m.spriteDefault,
+		spriteFront: m.spriteFront,
+		spriteBack: m.spriteBack,
+	}))
 	await fs.writeFile(path.join(__dirname, "database_monster.csv"), csv);
+	await fs.writeFile(path.join(__dirname, "database_monster.json"), JSON.stringify(monsterJson, null, 4));
 })();
