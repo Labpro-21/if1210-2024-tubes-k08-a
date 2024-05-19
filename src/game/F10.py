@@ -130,6 +130,7 @@ user_id = read_csv("user.csv")
 baca_oc = read_csv("user.csv")
 x = 0
 
+pilih_id = gamestate_get_user_id(gameState) #masih harus diperbaiki karena harus cek id mana yang login
 oc = baca_oc[pilih_id][4]
 
 while x == 0:
