@@ -246,7 +246,7 @@ def _promise_new(executor: Callable[[_PromiseResolve[_PromiseValue], _PromiseRej
     return promise
 
 def _as_promise(value: Any) -> Optional[Promise[Any]]:
-    if type(value) is not dict or "__type" not in value or value["__type"] == Promise:
+    if type(value) is not dict or "__type" not in value or value["__type"] is not __Promise:
         return None
     return value
 
@@ -427,11 +427,13 @@ def _promise_race(promises: list[Promise[_PromiseValue]]) -> Promise[_PromiseVal
             _promise_then(promise, onResolved, onRejected)
     return _promise_new(executor)
 
+_Suspendable = Callable[[str], tuple]
+
 _SuspendableInitial = dict()
 _SuspendableReturn = dict()
 _SuspendableExhausted = dict()
 
-def _promise_from_suspendable(handle: Callable[[str], tuple], *initialArgs, initialState: str = _SuspendableInitial) -> Promise[Any]:
+def _promise_from_suspendable(handle: _Suspendable, *initialArgs, initialState: str = _SuspendableInitial) -> Promise[Any]:
     def executor(resolve, reject):
         state = initialState
         args = tuple_to_array(initialArgs)
@@ -490,4 +492,89 @@ def _promise_from_wait(timeout: int, value: _PromiseValue = None) -> Promise[_Pr
         def onTimeout():
             resolve(value)
         _set_timeout(onTimeout, timeout)
+    return _promise_new(executor)
+
+_AbortSignal = TypedDict("AbortSignal",
+    aborted=bool,
+    reason=Any,
+    notifies=list[Callable[["_AbortSignal"], None]],
+)
+_AbortController = TypedDict("AbortController",
+    signal=_AbortSignal,
+)
+
+def __abortsignal_new() -> _AbortSignal:
+    return dict(
+        __type=_AbortSignal,
+        aborted=False,
+        reason=None,
+        notifies=[],
+    )
+
+def _as_abortsignal(value: Any) -> Optional[_AbortSignal]:
+    if type(value) is not dict or "__type" not in value or value["__type"] is not _AbortSignal:
+        return None
+    return value
+
+def __abortsignal_set_aborted(abortSignal: _AbortSignal, reason: Any) -> None:
+    if abortSignal["aborted"]:
+        return
+    abortSignal["aborted"] = True
+    abortSignal["reason"] = reason
+    for notify in abortSignal["notifies"]:
+        _next_tick(lambda: notify(abortSignal))
+    abortSignal["notifies"] = None
+
+def _abortsignal_is_aborted(abortSignal: _AbortSignal) -> bool:
+    return abortSignal["aborted"]
+
+def _abortsignal_get_reason(abortSignal: _AbortSignal) -> Any:
+    return abortSignal["reason"]
+
+def _abortsignal_on_abort(abortSignal: _AbortSignal, callback: Callable[[_AbortSignal], Any]) -> None:
+    if abortSignal["aborted"]:
+        _next_tick(lambda: callback(abortSignal))
+        return
+    notifies = abortSignal["notifies"]
+    array_push(notifies, callback)
+
+def _abortsignal_abort(reason: Any) -> _AbortSignal:
+    abortSignal = __abortsignal_new()
+    __abortsignal_set_aborted(abortSignal, reason)
+    return abortSignal
+
+def _abortsignal_any(abortSignals: list[_AbortSignal]) -> _AbortSignal:
+    abortSignal = __abortsignal_new()
+    def onAbort(signal: _AbortSignal):
+        if abortSignal["aborted"]:
+            return
+        __abortsignal_set_aborted(abortSignal, signal["reason"])
+    for signal in abortSignals:
+        _abortsignal_on_abort(signal, onAbort)
+    return abortSignal
+
+def _abortsignal_timeout(timeout: int, reason: Any = "Timed out") -> _AbortSignal:
+    abortSignal = __abortsignal_new()
+    _set_timeout(lambda: __abortsignal_set_aborted(abortSignal, reason), timeout)
+    return abortSignal
+
+def _abortcontroller_new() -> _AbortController:
+    return dict(
+        signal=__abortsignal_new()
+    )
+
+def _abortcontroller_get_signal(abortController: _AbortController) -> _AbortSignal:
+    return abortController["signal"]
+
+def _abortcontroller_abort(abortController: _AbortController, reason: Any) -> None:
+    signal = abortController["signal"]
+    if signal["aborted"]:
+        return
+    __abortsignal_set_aborted(signal, reason)
+
+def _promise_from_abortsignal(abortSignal: _AbortSignal) -> Promise[Any]:
+    def executor(_, reject):
+        def onAbort(abortSignal: _AbortSignal):
+            reject(abortSignal["reason"])
+        _abortsignal_on_abort(abortSignal, onAbort)
     return _promise_new(executor)

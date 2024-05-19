@@ -1,4 +1,4 @@
-from .coroutines import _Timer, _Pollable, _Looper, _looper_new, _looper_get_current, _ClosureType, _looper_closure, _looper_needs_tick, _looper_tick, _looper_tick_timers, _looper_tick_pollables, _looper_tick_immediates, _looper_tick_microtasks, _set_timeout, _set_interval, _clear_timeout, _clear_interval, _set_immediate, _next_tick, _PromiseState, _PromiseValue, _PromiseChainValue, Promise, _PromiseResolve, _PromiseReject, _promise_new, _as_promise, _promise_then, _promise_catch, _promise_finally, _promise_resolved, _promise_rejected, _promise_all, _promise_all_settled, _promise_any, _promise_race, _SuspendableInitial, _SuspendableReturn, _SuspendableExhausted, _promise_from_suspendable, _promise_from_wait
+from .coroutines import _Timer, _Pollable, _Looper, _looper_new, _looper_get_current, _ClosureType, _looper_closure, _looper_needs_tick, _looper_tick, _looper_tick_timers, _looper_tick_pollables, _looper_tick_immediates, _looper_tick_microtasks, _set_timeout, _set_interval, _clear_timeout, _clear_interval, _set_immediate, _next_tick, _PromiseState, _PromiseValue, _PromiseChainValue, Promise, _PromiseResolve, _PromiseReject, _promise_new, _as_promise, _promise_then, _promise_catch, _promise_finally, _promise_resolved, _promise_rejected, _promise_all, _promise_all_settled, _promise_any, _promise_race, _Suspendable, _SuspendableInitial, _SuspendableReturn, _SuspendableExhausted, _promise_from_suspendable, _promise_from_wait, _AbortSignal, _AbortController, _as_abortsignal, _abortsignal_is_aborted, _abortsignal_get_reason, _abortsignal_on_abort, _abortsignal_abort, _abortsignal_any, _abortsignal_timeout, _abortcontroller_new, _abortcontroller_get_signal, _abortcontroller_abort, _promise_from_abortsignal
 
 Timer = _Timer
 Pollable = _Pollable
@@ -36,8 +36,22 @@ promise_all = _promise_all
 promise_all_settled = _promise_all_settled
 promise_any = _promise_any
 promise_race = _promise_race
+Suspendable = _Suspendable
 SuspendableInitial = _SuspendableInitial
 SuspendableReturn = _SuspendableReturn
 SuspendableExhausted = _SuspendableExhausted
 promise_from_suspendable = _promise_from_suspendable
 promise_from_wait = _promise_from_wait
+AbortSignal = _AbortSignal
+AbortController = _AbortController
+as_abortsignal = _as_abortsignal
+abortsignal_is_aborted = _abortsignal_is_aborted
+abortsignal_get_reason = _abortsignal_get_reason
+abortsignal_on_abort = _abortsignal_on_abort
+abortsignal_abort = _abortsignal_abort
+abortsignal_any = _abortsignal_any
+abortsignal_timeout = _abortsignal_timeout
+abortcontroller_new = _abortcontroller_new
+abortcontroller_get_signal = _abortcontroller_get_signal
+abortcontroller_abort = _abortcontroller_abort
+promise_from_abortsignal = _promise_from_abortsignal

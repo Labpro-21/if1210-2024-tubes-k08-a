@@ -1429,14 +1429,14 @@ def _view_set_viewport_size(view: _View, viewportSize: Size) -> None:
 
 def _view_has_child(view: _View, subview: _View) -> None:
     if mixin_is_override(view):
-        return mixin_call_override(view)
+        return mixin_call_override(view, subview)
     subviewSuperview = subview["superview"]
     if subviewSuperview is view:
         return True
     return False
 def _view_add_child(view: _View, subview: _View) -> None:
     if mixin_is_override(view):
-        return mixin_call_override(view)
+        return mixin_call_override(view, subview)
     subviewSuperview = subview["superview"]
     if subviewSuperview is view:
         return
@@ -1448,7 +1448,7 @@ def _view_add_child(view: _View, subview: _View) -> None:
     _view_mark_recompute_display(view)
 def _view_remove_child(view: _View, subview: _View) -> None:
     if mixin_is_override(view):
-        return mixin_call_override(view)
+        return mixin_call_override(view, subview)
     subviewSuperview = subview["superview"]
     if subviewSuperview is not view:
         return

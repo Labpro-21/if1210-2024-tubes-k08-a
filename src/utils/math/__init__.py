@@ -1,4 +1,4 @@
-from .math import _Number, _Point, _Size, _Rectangle, _EmptyPoint, _EmptySize, _EmptyRectangle, _point_eq, _point_neq, _point_add, _point_sub, _size_eq, _size_neq, _size_add, _size_sub, _size_from_point, _size_as_point, _rectangle_eq, _rectangle_neq, _rectangle_from_point_size, _rectangle_from_ltrb, _rectangle_get_point, _rectangle_get_size, _rectangle_union, _rectangle_intersect, _rectangle_inflate, _rand_list, _rand_int, _rand
+from .math import _Number, _Point, _Size, _Rectangle, _EmptyPoint, _EmptySize, _EmptyRectangle, _point_eq, _point_neq, _point_add, _point_sub, _size_eq, _size_neq, _size_add, _size_sub, _size_from_point, _size_as_point, _rectangle_eq, _rectangle_neq, _rectangle_from_point_size, _rectangle_from_ltrb, _rectangle_get_point, _rectangle_get_size, _rectangle_union, _rectangle_intersect, _rectangle_inflate, _rand_list, _rand_int, _rand, _rand_uniq_int_array
 
 Number = _Number
 Point = _Point
@@ -29,3 +29,4 @@ rectangle_inflate = _rectangle_inflate
 rand_list = _rand_list
 rand_int = _rand_int
 rand = _rand
+rand_uniq_int_array = _rand_uniq_int_array

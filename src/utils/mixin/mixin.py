@@ -14,6 +14,24 @@ def _mixin_new(overrides: dict[str, Any]) -> dict[str, Any]:
         internal[internalMethodName] = override
     return internal
 
+def _mixin_set_override(internal: dict[str, Any], **overrides) -> None:
+    for methodName, override in overrides.items():
+        internalMethodName = f"__mixin_${methodName}"
+        if override is None:
+            if internalMethodName in internal:
+                del internal[internalMethodName]
+            continue
+        if not callable(override):
+            raise f"{methodName} is not callable"
+        internal[internalMethodName] = override
+
+def _mixin_get_override(internal: dict[str, Any], methodName) -> Any:
+    internalMethodName = f"__mixin_${methodName}"
+    if internalMethodName not in internal:
+        return None
+    override = internal[internalMethodName]
+    return override
+
 def _mixin_is_override(internal: dict[str, Any]) -> bool:
     stack = internal["__mixin_stack"]
     frame = sys._getframe(1)
@@ -41,11 +59,12 @@ def _mixin_call_override(internal: dict[str, Any], *args, **kwargs) -> Any:
     finally:
         array_pop(stack)
 
-def _mixin_call_super(internal: dict[str, Any], *args, **kwargs) -> Any:
+def _mixin_call_super(internal: dict[str, Any], *args, __mixin_self = None, **kwargs) -> Any:
     stack = internal["__mixin_stack"]
     frame = sys._getframe(1)
     overrideName = frame.f_code.co_name
-    override = frame.f_globals[overrideName]
+    alternateOverrideName = f"__mixin_{overrideName}"
+    override = __mixin_self if __mixin_self is not None else frame.f_locals[alternateOverrideName] if alternateOverrideName in frame.f_locals else frame.f_globals[overrideName]
     internalMethodName = dict_key_of(internal, override)
     methodName = string_slice(internalMethodName, len("__mixin_$"))
     method = array_find_last(stack, lambda s, *_: s[0] == methodName)[1]

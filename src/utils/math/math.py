@@ -1,3 +1,4 @@
+from utils.primordials import *
 from typing import NamedTuple, Union
 import time
 import math
@@ -126,4 +127,17 @@ def _rand_int(min: int, max: int) -> int:
 def _rand() -> float:
     global __rand_seed
     __rand_seed, result = __lcg(__rand_seed)
+    return result
+
+def _rand_uniq_int_array(min: int, max: int, pick: int) -> list[int]:
+    result: list[int] = []
+    while True:
+        random = int(_rand() * (max - min) + min)
+        if array_includes(result, random):
+            continue
+        array_push(result, random)
+        pick -= 1
+        if pick > 0:
+            continue
+        break
     return result
