@@ -5,12 +5,21 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
+			"name": "Download worldmap",
+			"program": "${workspaceFolder}/.private/worldmap/download.mjs",
+			"request": "launch",
+			"skipFiles": [
+				"<node_internals>/**"
+			],
+			"type": "node"
+		},
+		{
 			"name": "Python Debugger: Remote Attach",
 			"type": "debugpy",
 			"request": "attach",
 			"connect": {
 				"host": "localhost",
-				"port": 5678
+				"port": 5677
 			},
 			"pathMappings": [
 				{

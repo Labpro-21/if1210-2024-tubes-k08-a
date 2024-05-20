@@ -20,7 +20,7 @@ __MenuArenaHandlerCache = TypedDict("MenuArenaHandlerCache",
     args=tuple,
     promise=Promise
 )
-__MenuArenaCache = NamedTuple("MenuArena", [
+__MenuArenaCache = NamedTuple("MenuArenaCache", [
     ("gameState", GameState), # expect not changed
     ("parent", View), # expect not changed
     ("abortSignal", AbortSignal), # expect not changed
@@ -93,7 +93,7 @@ def _arena_ui_handler_default(state, args):
         trainerId = selection
         trainerMonsters = array_filter(inventory_monster_get_user_monsters(gameState, trainerId), lambda m, *_: m.healthPoints > 0)
         initialTrainerMonster = trainerMonsters[int(gamestate_rand(gameState) * len(trainerMonsters))]
-        return "arena:next_stage_new_battle", cache, trainerId, initialTrainerMonster
+        return "arena:next_stage_new_battle", cache, trainerId, initialTrainerMonster.id
     if state == "arena:wait_battle":
         cache, *_ = args
         return SuspendableReturn, "arena:battle_finished", cache.battleRef["promise"]
@@ -136,13 +136,13 @@ def _arena_ui_handler_default(state, args):
         input("Next stage", selectable=True)
         input("Selesai", selectable=True)
         selection = meta(action="select", signal=cache.abortSignal)
-        return SuspendableReturn, "arena:next_stage_choose", cache, selection, oldArenaId
+        return SuspendableReturn, "arena:next_stage_choose", selection
     if state == "arena:next_stage_choose":
         cache, selection, *_ = args
         if cache.abortSignal is not None and selection is cache.abortSignal:
             return "arena:forcefully_aborted", cache
         if selection == "Next stage":
-            return "arena:next_stage_check_trainer", cache, oldArenaId
+            return "arena:next_stage_check_trainer", cache
         if selection == "Selesai":
             return SuspendableReturn, "arena:end"
     if state == "arena:next_stage_check_trainer":
@@ -185,8 +185,8 @@ def _arena_ui_handler_default(state, args):
         selection = meta(action="select", signal=cache.abortSignal)
         return SuspendableReturn, "arena:next_stage_new_trainer", selection
     if state == "arena:next_stage_new_trainer":
-        gameState = cache.gameState
         cache, selection, *_ = args
+        gameState = cache.gameState
         print, input, meta = cache.mainConsole
         meta("selectableAllowEscape", False)
         if cache.abortSignal is not None and selection is cache.abortSignal:
@@ -207,7 +207,7 @@ def _arena_ui_handler_default(state, args):
             player1Id=arena.playerId,
             player2Id=trainerId,
             monster1Id=None,
-            monster2Id=monsterId.id,
+            monster2Id=monsterId,
             verdict=-1,
             handler="default_arena_trainer$"
         ))

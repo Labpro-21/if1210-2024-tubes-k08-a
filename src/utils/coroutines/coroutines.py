@@ -50,7 +50,7 @@ def _looper_get_current() -> _Looper:
     global __looper_current_id, __loopers
     return __loopers[__looper_current_id]
 
-def __looper_make_closure_type():
+def __make_looper_closure_type():
     def __init__(self, looperId: int):
         self.looperId = looperId
         self.lastLooperId = -1
@@ -63,16 +63,16 @@ def __looper_make_closure_type():
         __looper_current_id = self.lastLooperId
         self.lastLooperId = -1
         return False
-    ClosureType = type("Closure", (object,), dict(
+    LooperClosureType = type("LooperClosure", (object,), dict(
         __init__=__init__,
         __enter__=__enter__,
         __exit__=__exit__
     ))
-    return ClosureType
-_ClosureType = __looper_make_closure_type()
+    return LooperClosureType
+__LooperClosureType = __make_looper_closure_type()
 
-def _looper_closure(looperId: int) -> _ClosureType:
-    return _ClosureType(looperId)
+def _looper_closure(looperId: int) -> __LooperClosureType:
+    return __LooperClosureType(looperId)
 
 def _looper_needs_tick(looperId: int) -> bool:
     looper = __loopers[looperId]
@@ -88,16 +88,17 @@ def _looper_tick(looperId: int) -> None:
     __looper_current_id = looperId
     try:
         looper = _looper_get_current()
-        _looper_tick_timers(looper)
-        _looper_tick_microtasks(looper)
-        _looper_tick_pollables(looper)
-        _looper_tick_microtasks(looper)
-        _looper_tick_immediates(looper)
-        _looper_tick_microtasks(looper)
+        __looper_tick_timers(looper)
+        __looper_tick_microtasks(looper)
+        __looper_tick_pollables(looper)
+        __looper_tick_microtasks(looper)
+        __looper_tick_immediates(looper)
+        __looper_tick_microtasks(looper)
+        __looper_wait_next_timers(looper)
     finally:
         __looper_current_id = lastLooperId
 
-def _looper_tick_timers(looper: _Looper) -> None:
+def __looper_tick_timers(looper: _Looper) -> None:
     timers = looper["timers"]
     timersCopy = array_slice(timers)
     now = __now()
@@ -110,7 +111,15 @@ def _looper_tick_timers(looper: _Looper) -> None:
         if not timer["repeat"]:
             array_splice(timers, array_index_of(timers, timer), 1)
 
-def _looper_tick_pollables(looper: _Looper) -> None:
+def __looper_wait_next_timers(looper: _Looper) -> None:
+    now = __now()
+    timers = looper["timers"]
+    sleepTime = array_reduce(timers, lambda c, t, *_: min(c, t["anchor"] + t["timeout"] - now), 150)
+    if sleepTime <= 5:
+        return
+    time.sleep(sleepTime / 1000)
+
+def __looper_tick_pollables(looper: _Looper) -> None:
     pollables = looper["pollables"]
     nextPollables = array_map(pollables, lambda p, *_: p["callback"]())
     for i in range(len(nextPollables) - 1, -1, -1):
@@ -118,12 +127,12 @@ def _looper_tick_pollables(looper: _Looper) -> None:
            continue
         array_splice(pollables, i, 1)
 
-def _looper_tick_immediates(looper: _Looper) -> None:
+def __looper_tick_immediates(looper: _Looper) -> None:
     immediates = array_splice(looper["immediates"], 0)
     for immediate in immediates:
         immediate()
 
-def _looper_tick_microtasks(looper: _Looper) -> None:
+def __looper_tick_microtasks(looper: _Looper) -> None:
     while True:
         microtasks = array_splice(looper["microtasks"], 0)
         for microtask in microtasks:
@@ -463,7 +472,7 @@ def _promise_from_suspendable(handle: _Suspendable, *initialArgs, initialState: 
                 result = handle(state, (*args,))
                 if _as_promise(result) is None:
                     if result is _SuspendableExhausted:
-                        raise "Exhausted state"
+                        raise BaseException(f"Exhausted state {state}")
                     if type(result) is tuple:
                         state, *args = result
                     else:
@@ -474,7 +483,7 @@ def _promise_from_suspendable(handle: _Suspendable, *initialArgs, initialState: 
                 def onResolved(result: tuple):
                     nonlocal state, args
                     if result is _SuspendableExhausted:
-                        raise "Exhausted state"
+                        raise BaseException(f"Exhausted state {state}")
                     if type(result) is tuple:
                         state, *args = result
                     else:

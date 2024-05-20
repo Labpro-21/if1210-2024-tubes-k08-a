@@ -61,6 +61,7 @@ _PotionSchemaType = NamedTuple("Potion", [
     ("duration", float),
     ("curve", int), # 0 means linear, 1 means ease-out-quint, to be implemented for other curves.
     # ("flags", list[int]),
+    ("sprite", str),
     ("nextId", Optional[int]), # Reference to potionDatabase, this allows a potion to have multiple effects. The referenced potion typically is an internal one.
 ])
 _PotionSchemaProperties = [
@@ -73,6 +74,7 @@ _PotionSchemaProperties = [
     database_property_new("duration", float, lambda x: float(x), lambda x: str(x)),
     database_property_new("curve", int, lambda x: int(x), lambda x: str(x)),
     # database_property_new("flags", list[int], lambda x: array_map(string_split(x, "|"), lambda v: int(v)), lambda x: array_join(array_map(x, lambda v: str(v)), "|")),
+    database_property_new("sprite", str, lambda x: x, lambda x: x),
     database_property_new("nextId", int, lambda x: int(x) if x != "" else None, lambda x: str(x) if x != None else ""),
 ]
 _PotionSchema = database_schema_new("csv", _PotionSchemaType, _PotionSchemaProperties)

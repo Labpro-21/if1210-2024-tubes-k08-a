@@ -8,6 +8,8 @@ from game.inventory import *
 from game.arena import *
 from .ui_battle import _menu_show_battle
 from .ui_arena import _menu_show_arena
+from .ui_shop import _menu_show_shop
+from .ui_laboratory import _menu_show_laboratory
 import time
 
 def _menu_show_debug_test(state, args):
@@ -24,6 +26,8 @@ def _menu_show_debug_test(state, args):
         input("Coroutines Stats", selectable=True)
         input("Battle Test", selectable=True)
         input("Arena Test", selectable=True)
+        input("Shop Test", selectable=True)
+        input("Laboratory Test", selectable=True)
         selection = meta(action="select")
         return 2, gameState, console, selection
     if state == 2:
@@ -36,13 +40,17 @@ def _menu_show_debug_test(state, args):
             return SuspendableReturn, None, promise_from_suspendable(_menu_show_debug_battle, gameState)
         if selection == "Arena Test":
             return SuspendableReturn, None, promise_from_suspendable(_menu_show_debug_arena, gameState)
+        if selection == "Shop Test":
+            return SuspendableReturn, None, promise_from_suspendable(_menu_show_debug_shop, gameState)
+        if selection == "Laboratory Test":
+            return SuspendableReturn, None, promise_from_suspendable(_menu_show_debug_laboratory, gameState)
     return SuspendableExhausted
 
 def _menu_toggle_coroutines_stats(state, args):
     if state is SuspendableInitial:
         gameState, = args
         visual = gamestate_get_visual(gameState)
-        if "__coroutines_stats_view" in visual and visual["__coroutines_stats_view"] is not None:
+        if "__debug_coroutines_stats" in visual and visual["__debug_coroutines_stats"] is not None:
             return 2, gameState
         return 1, gameState
     if state == 1:
@@ -53,7 +61,7 @@ def _menu_toggle_coroutines_stats(state, args):
         tempView = view_new(driver)
         statsView = visual_show_simple_dialog(visual, None, "",
             x=pos_from_absolute(0), y=pos_from_absolute(0),
-            width=dim_from_absolute(25), height=dim_from_absolute(7),
+            width=dim_from_absolute(25), height=dim_from_absolute(8),
             padding=(0, 0, 0, 0), parent=tempView)
         refController = dict(
             statsView=statsView,
@@ -84,6 +92,7 @@ def _menu_toggle_coroutines_stats(state, args):
                 Pollables length: {len(looper["pollables"])}
                 Immediates length: {len(looper["immediates"])}
                 Microtasks length: {len(looper["microtasks"])}
+                Timer ID Counter: {looper["timerIdCounter"]}
             """), "\n"), lambda l, *_: string_trim(l)), "\n"))
             if frame % 7 == 0:
                 next_tick(update)
@@ -164,6 +173,22 @@ def _menu_show_debug_arena(state, args):
         ))
         arenaView = promise_from_suspendable(_menu_show_arena, gameState, background, arena, None)
         return SuspendableReturn, arenaView
+    return SuspendableExhausted
+
+def _menu_show_debug_shop(state, args):
+    if state is SuspendableInitial:
+        gameState, = args
+        background = None
+        shopView = promise_from_suspendable(_menu_show_shop, gameState, background, None)
+        return SuspendableReturn, shopView
+    return SuspendableExhausted
+
+def _menu_show_debug_laboratory(state, args):
+    if state is SuspendableInitial:
+        gameState, = args
+        background = None
+        laboratoryView = promise_from_suspendable(_menu_show_laboratory, gameState, background, None)
+        return SuspendableReturn, laboratoryView
     return SuspendableExhausted
 
 def __now() -> float:

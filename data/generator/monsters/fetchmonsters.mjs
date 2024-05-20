@@ -12,6 +12,7 @@ const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 	const pokedexPage = parse(await (await fetch(p`/pokedex/all`)).text());
 	const pokedexRows = pokedexPage.querySelectorAll("#pokedex > tbody > tr");
 
+	// const monsters = JSON.parse(await fs.readFile(path.join(__dirname, "database_monster.json")));
 	const monsters = [];
 	for(const pokedexRow of pokedexRows) {
 		const monsterId = parseInt(pokedexRow.querySelector("td:nth-child(1)").innerText) - 1;
@@ -31,7 +32,7 @@ const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 			attackPower: monsterAttack,
 			defensePower: monsterDefense,
 			level: 1,
-			familiy: monsterStrId,
+			family: monsterStrId,
 			description: "",
 			spriteDefault: `monsters/${monsterStrId}.png.txt`,
 			spriteFront: `monsters/${monsterStrId}_normal.gif.txt`,
@@ -46,9 +47,9 @@ const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 		let i = 0;
 		for(const monsterEvolutionId of monsterEvolutionIds) {
 			const monster = monsters.find(m => m.strId == monsterEvolutionId);
-			if(monster.familiy != null) continue;
+			if(monster == null) continue;
 			monster.level = ++i;
-			monster.familiy = monsterEvolutionIds[0];
+			monster.family = monsterEvolutionIds[0];
 		}
 	}
 
@@ -69,7 +70,7 @@ const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 		m.id, 
 		m.name, 
 		`"${m.description}"`, 
-		m.familiy, 
+		m.family, 
 		m.level, 
 		m.healthPoints, 
 		m.attackPower, 
@@ -78,19 +79,6 @@ const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 		m.spriteFront,
 		m.spriteBack
 	].join(";")).join("\n");
-	const monsterJson = monsters.map(m => ({
-		id: m.id,
-		name: m.name,
-		description: m.description,
-		familiy: m.familiy,
-		level: m.level,
-		healthPoints: m.healthPoints,
-		attackPower: m.attackPower,
-		defensePower: m.defensePower,
-		spriteDefault: m.spriteDefault,
-		spriteFront: m.spriteFront,
-		spriteBack: m.spriteBack,
-	}))
 	await fs.writeFile(path.join(__dirname, "database_monster.csv"), csv);
-	await fs.writeFile(path.join(__dirname, "database_monster.json"), JSON.stringify(monsterJson, null, 4));
+	await fs.writeFile(path.join(__dirname, "database_monster.json"), JSON.stringify(monsters, null, 4));
 })();

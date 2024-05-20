@@ -16,13 +16,15 @@ const __dirname = process.cwd();
 		for(const file of files) {
 			const moduleName = path.basename(file).split(".")[0];
 			const contents = await fs.readFile(file);
-			const regex = /^(?:(_{0,1}[a-zA-Z][^\s]*)\s*=|def\s*(_{0,1}[a-zA-Z][^\s(]*))/gm;
+			const regex = /^(?:(_{0,1}[a-zA-Z][^\.\s]*)\s*=|def\s*(_{0,1}[a-zA-Z][^\.\s(]*))/gm;
 			const exports = [];
 			let matcher;
 			while((matcher = regex.exec(contents)) != null)
 				exports.push(matcher[1] || matcher[2]);
-			if(exports.length == 0)
+			if(exports.length == 0) {
+				// result += `__import__("${moduleName}", globals(), locals(), [], level=1)`;
 				continue
+			}
 			result += `from .${moduleName} import ${exports.join(", ")}\n\n`;
 			result += `${exports.map(e => `${e.startsWith("_") ? e.slice(1) : e} = ${e}`).join("\n")}\n\n`
 		}

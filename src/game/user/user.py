@@ -1,6 +1,10 @@
 from utils.primordials import *
+from utils.coroutines import *
+from utils.math import *
 from game.state import *
 from game.database import *
+from game.monster import *
+from game.inventory import *
 from typing import Optional, Union, Callable
 
 def _user_get(gameState: GameState, userId: int) -> UserSchemaType:
@@ -10,6 +14,19 @@ def _user_get(gameState: GameState, userId: int) -> UserSchemaType:
 def _user_set(gameState: GameState, userId: int, modifier: Union[UserSchemaType, Callable[[UserSchemaType], UserSchemaType]]) -> UserSchemaType:
     userDatabase = gamestate_get_user_database(gameState)
     user = modifier(database_get_entry_at(userDatabase, userId)) if callable(modifier) else modifier
+    database_set_entry_at(userDatabase, userId, user)
+    return user
+
+def _user_new(gameState: GameState) -> UserSchemaType:
+    userDatabase = gamestate_get_user_database(gameState)
+    userId = database_get_entries_length(userDatabase)
+    user = UserSchemaType(
+        id=userId,
+        username=None,
+        password=None,
+        role=None,
+        money=None,
+    )
     database_set_entry_at(userDatabase, userId, user)
     return user
 
@@ -32,87 +49,100 @@ def _user_get_current(gameState: GameState) -> Optional[UserSchemaType]:
     user_database = gamestate_get_user_database(gameState)
     return database_get_entry_at(user_database, userId)
 
-def _user_register(gameState: GameState, new_username: str, new_password: str) -> None:
-    '''
-    Prosedur untuk register user baru
-    '''
-    user_database = gamestate_get_user_database(gameState)
-    user_entries = database_get_entries(user_database)
-    # mengecek apakah user sedang login atau tidak
-    if _user_is_logged_in(gameState):
-        print("Anda sudah login, logout dulu untuk register!")
-        return
-    
-    # input username baru
-    # new_username: str = input("Masukan username: ")
+def _user_register(state, args) -> None:
+    if state is SuspendableInitial:
+        gameState, console, new_username, new_password = args
+        print, input, meta = console
+        '''
+        Prosedur untuk register user baru
+        '''
+        user_database = gamestate_get_user_database(gameState)
+        user_entries = database_get_entries(user_database)
+        # mengecek apakah user sedang login atau tidak
+        if _user_is_logged_in(gameState):
+            print("Anda sudah login, logout dulu untuk register!")
+            return SuspendableReturn, None
         
-    # mengecek apakah karakter dalam username valid
-    user_false_input: bool = True
-    valid_username: str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_1234567890"
-    
-    for i in range (len(new_username)):
-        for j in range (len(valid_username)):
-            if new_username[i] != valid_username[j]:
-                user_false_input = True
-            else:
-                user_false_input = False
+        # input username baru
+        # new_username: str = input("Masukan username: ")
+            
+        # mengecek apakah karakter dalam username valid
+        user_false_input: bool = True
+        valid_username: str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_1234567890"
+        
+        for i in range (len(new_username)):
+            for j in range (len(valid_username)):
+                if new_username[i] != valid_username[j]:
+                    user_false_input = True
+                else:
+                    user_false_input = False
+                    break
+            if user_false_input == True:
                 break
+            
         if user_false_input == True:
-            break
-        
-    if user_false_input == True:
-        print("Username hanya boleh berisi alfabet, angka, underscore, dan strip!")
-        return
-    else:
-    # mengecek apakah username sudah ada di database   
-        for i in range (len(user_entries)):
-            if new_username == user_entries[i].username:
-                print(f"Username {new_username} sudah terpakai, silahkan gunakan username lain!")
-                return
-
-    # input password
-    # new_password: str = input("Masukan password: ")
-    
-    # input pilihan monster starter
-    monster_false: bool = True
-    input_salah: bool = False
-    while monster_false == True:
-        if input_salah == True:
-            print("Pilihan hanya '1', '2', atau '3'! Pilih salah satu!\n")
-        print('''
-Silakan pilih salah satu monster sebagai monster awalmu.
-1. Monster1
-2. Monster2
-3. Monster3
-Input angka saja, contoh: input '1' untuk memilih Monster1
-            ''')
-        starter_num: str = input("Monster pilihanmu: ")
-        if starter_num == "1" or starter_num == "2" or starter_num == "3":
-            monster_false = False
+            print("Username hanya boleh berisi alfabet, angka, underscore, dan strip!")
+            return SuspendableReturn, None
         else:
-            input_salah = True
+        # mengecek apakah username sudah ada di database   
+            for i in range (len(user_entries)):
+                if new_username == user_entries[i].username:
+                    print(f"Username {new_username} sudah terpakai, silahkan gunakan username lain!")
+                    return SuspendableReturn, None
 
-    starter_choice: str
-    if starter_num == '1':
-        starter_choice = "Monster1"
-    elif starter_num == '2':
-        starter_choice = "Monster2"
-    else:
-        starter_choice = "Monster3"
+        # input password
+        # new_password: str = input("Masukan password: ")
         
-    print(f"Selamat datang Agent {new_username}. Mari kita mengalahkan Dr. Asep Spakbor dengan {starter_choice}!")
-    
-    # writing new user to database
-    # id itu zero-based, jadi langsung pakai length() untuk mendapatkan id selanjutnya.
-    new_id = database_get_entries_length(user_database)
-    database_set_entry_at(user_database, new_id, 
-                          UserSchemaType(id = new_id, 
-                                         username = new_username,
-                                         password = new_password,
-                                         role = "agent",
-                                         money = 0))
-    gamestate_set_user_id(gameState, new_id)
-    return
+        # input pilihan monster starter
+        availableMonsters = monster_get_all_monsters(gameState)
+        availableMonsters = array_filter(availableMonsters, lambda m, *_: m.level == 1)
+        availableMonsters = array_map(rand_uniq_int_array(0, len(availableMonsters), min(5, len(availableMonsters))), lambda i, *_: availableMonsters[i])
+        print("Silakan pilih salah satu monster sebagai monster awalmu.")
+        for availableMonster in availableMonsters:
+            description = f"L: {availableMonster.level} HP: {availableMonster.healthPoints} ATK: {availableMonster.attackPower} DEF: {availableMonster.defensePower}"
+            input(f"{availableMonster.name}", description, id=availableMonster.id, selectable=True)
+        meta(action="pushFlags")
+        meta("selectableAllowEscape", False)
+        selection = meta(action="select")
+        return "choose_monster", gameState, console, new_username, new_password, selection
+    if state == "choose_monster":
+        gameState, console, new_username, new_password, selection = args
+        print, input, meta = console
+        meta(action="popFlags")
+        
+        # writing new user to database
+        # id itu zero-based, jadi langsung pakai length() untuk mendapatkan id selanjutnya.
+        user = _user_new(gameState)
+        user = _user_set(gameState, user.id, namedtuple_with(user,
+            username=new_username,
+            password=new_password,
+            role="agent",
+            money=0
+        ))
+        
+        monsterId = selection
+        monster = monster_get(gameState, monsterId)
+        inventoryMonster = inventory_monster_new(gameState)
+        inventoryMonster = inventory_monster_set(gameState, inventoryMonster.id, namedtuple_with(inventoryMonster,
+            ownerId=user.id,
+            referenceId=monsterId,
+            name=monster.name,
+            experiencePoints=0,
+            healthPoints=monster.healthPoints,
+            attackPower=monster.attackPower,
+            defensePower=monster.defensePower,
+            activePotions=[],
+        ))
+
+        gamestate_set_user_id(gameState, user.id)
+
+        meta(action="clear")
+        print(f"Selamat datang Agent {new_username}. Mari kita mengalahkan Dr. Asep Spakbor dengan {inventoryMonster.name}!")
+        input("Lanjut", selectable=True)
+        selection = meta(action="select")
+        
+        return SuspendableReturn, None, selection
+    return SuspendableExhausted
 
 def _user_login(gameState: GameState, username: str, password: str) -> None:
     '''
@@ -153,7 +183,6 @@ def _user_login(gameState: GameState, username: str, password: str) -> None:
     else: # benar
         print(f'''
 Selamat datang, Agent {username}!
-Masukkan command “help” untuk daftar command yang dapat kamu panggil.
               ''')
         newly_logged_in_id = user_entries[user_index].id
         gamestate_set_user_id(gameState, newly_logged_in_id)

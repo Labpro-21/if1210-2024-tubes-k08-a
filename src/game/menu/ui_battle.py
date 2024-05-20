@@ -13,7 +13,7 @@ __MenuBattleHandlerCache = TypedDict("MenuBattleHandlerCache",
     args=tuple,
     promise=Promise
 )
-__MenuBattleCache = NamedTuple("MenuBattle", [
+__MenuBattleCache = NamedTuple("MenuBattleCache", [
     ("gameState", GameState), # expect not changed
     ("parent", View), # expect not changed
     ("turn", int), # expect not changed
@@ -164,7 +164,7 @@ def _menu_show_battle(state, args):
         
         opponentMonsterFrame = visual_show_simple_dialog(visual, None, "",
             x=pos_from_end(None), y=pos_from_absolute(2),
-            width=dim_from_factor(0.5), height=dim_from_factor(0.5),
+            width=dim_from_factor(0.5), height=dim_from_factor(0.6),
             border=(0, 0, 0, 0), padding=(0, 0, 0, 0),
             parent=battleView)
 
@@ -189,7 +189,7 @@ def _menu_show_battle(state, args):
 
         selfMonsterFrame = visual_show_simple_dialog(visual, None, "",
             x=pos_from_absolute(0), y=pos_sub(pos_from_end(None), pos_from_absolute(2)),
-            width=dim_from_factor(0.5), height=dim_from_factor(0.5),
+            width=dim_from_factor(0.5), height=dim_from_factor(0.6),
             border=(0, 0, 0, 0), padding=(0, 0, 0, 0),
             parent=battleView)
         
@@ -203,7 +203,7 @@ def _menu_show_battle(state, args):
                 if frame < totalFrame:
                     middleFrame = frame if frame <= totalFrame / 2 else totalFrame - frame
                     view_set_x(selfMonsterFrame, pos_from_factor(middleFrame / totalFrame * 0.5))
-                    view_set_y(selfMonsterFrame, pos_sub(pos_from_end(None), pos_from_factor(middleFrame / totalFrame * 0.5)))
+                    view_set_y(selfMonsterFrame, pos_sub(pos_sub(pos_from_end(None), pos_from_absolute(2)), pos_from_factor(middleFrame / totalFrame * 0.5)))
                     return
                 view_set_x(selfMonsterFrame, pos_from_absolute(0))
                 view_set_y(selfMonsterFrame, pos_sub(pos_from_end(None), pos_from_absolute(2)))

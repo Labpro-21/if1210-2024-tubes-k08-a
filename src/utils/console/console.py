@@ -180,8 +180,20 @@ def _pos_combine_calculate(pos: _PosCombine, scalar: float, direction: _Directio
     leftAnchor = _pos_calculate(pos["left"], scalar, direction, dim, view)
     rightAnchor = _pos_calculate(pos["right"], scalar, direction, dim, view)
     return leftAnchor + rightAnchor if pos["add"] else leftAnchor - rightAnchor
-def _pos_view_calculate(pos: _PosView, scalar: float, direction: _Direction, dim: "_Dim", view: "_View") -> float:
-    return _pos_view_anchor(pos, scalar)
+def _pos_view_calculate(pos: _PosView, scalar: float, direction: _Direction, dim: "_Dim", view0: "_View") -> float:
+    view = pos["view"]
+    side = pos["side"]
+    frame = view["frame"]
+    offset = _view_transform_frame_to_superview(view, view0["superview"])
+    if side == 0:
+        return offset.x
+    if side == 1:
+        return offset.y
+    if side == 2:
+        return offset.x + frame.w
+    if side == 3:
+        return offset.y + frame.h
+    return None
 def _pos_function_calculate(pos: _PosFunction, scalar: float, direction: _Direction, dim: "_Dim", view: "_View") -> float:
     return _pos_function_anchor(pos, scalar)
 
@@ -377,7 +389,7 @@ def _dim_combine_calculate(dim: _DimCombine, scalar: float, direction: _Directio
     rightAnchor = _dim_calculate(dim["right"], scalar, direction, position, view)
     return leftAnchor + rightAnchor if dim["add"] else max(0, leftAnchor - rightAnchor)
 def _dim_view_calculate(dim: _DimView, scalar: float, direction: _Direction, position: float, view: "_View") -> float:
-    return max(0, _dim_view_calculate(dim, scalar - position))
+    return max(0, _dim_view_anchor(dim, scalar - position))
 def _dim_function_calculate(dim: _DimFunction, scalar: float, direction: _Direction, position: float, view: "_View") -> float:
     return max(0, _dim_function_anchor(dim, scalar - position))
 def _dim_auto_calculate(dim: _DimAuto, scalar: float, direction: _Direction, position: float, view: "_View") -> float:
@@ -425,9 +437,9 @@ def _dim_sub(left: _Dim, right: _Dim) -> _Dim:
         return _dim_from_absolute(_dim_anchor(left, 0) - _dim_anchor(right, 0))
     return _dim_from_combine(False, left, right)
 def _dim_from_view_width(view: "_View") -> _Dim:
-    return _dim_from_view(view, 1)
-def _dim_from_view_height(view: "_View") -> _Dim:
     return _dim_from_view(view, 0)
+def _dim_from_view_height(view: "_View") -> _Dim:
+    return _dim_from_view(view, 1)
 
 _RuneAttribute = NamedTuple("RuneAttribute", [
     ("font", int),
@@ -647,7 +659,7 @@ def _text_formatter_get_vertical_alignment(textFormatter: _TextFormatter) -> _Te
 def _text_formatter_get_lines(textFormatter: _TextFormatter) -> list[list[_Rune]]:
     if not textFormatter["recompute"]:
         return textFormatter["lines"]
-    lines = _text_formatter_get_computed_lines(textFormatter)
+    lines = __text_formatter_get_computed_lines(textFormatter)
     textFormatter["lines"] = lines
     textFormatter["recompute"] = False
     return lines
@@ -714,7 +726,7 @@ def _text_formatter_draw(textFormatter: _TextFormatter, screen: Rectangle) -> No
             startY = screen.y + screen.h - lineTotalSize
         lineOffset = 0
         if startY < 0:
-            for i in range(8):
+            for i in range(32):
                 lineOffset = matchSizeIndexAtPosition(lineSizes, 0, -startY + (i // 2) * (1 if i % 2 == 0 else -1))
                 if lineOffset is not None:
                     break
@@ -736,7 +748,7 @@ def _text_formatter_draw(textFormatter: _TextFormatter, screen: Rectangle) -> No
                 startX = screen.x + screen.w - textSize
             runeOffset = 0
             if startX < 0:
-                for i in range(8):
+                for i in range(32):
                     runeOffset = matchSizeIndexAtPosition(runeSizes, 0, -startX + (i // 2) * (1 if i % 2 == 0 else -1))
                     if runeOffset is not None:
                         break
@@ -760,7 +772,7 @@ def _text_formatter_draw(textFormatter: _TextFormatter, screen: Rectangle) -> No
             startX = screen.x + screen.w - lineTotalSize
         lineOffset = 0
         if startX < 0:
-            for i in range(8):
+            for i in range(32):
                 lineOffset = matchSizeIndexAtPosition(lineSizes, 0, -startX + (i // 2) * (1 if i % 2 == 0 else -1))
                 if lineOffset is not None:
                     break
@@ -782,7 +794,7 @@ def _text_formatter_draw(textFormatter: _TextFormatter, screen: Rectangle) -> No
                 startY = screen.y + screen.h - textSize
             runeOffset = 0
             if startY < 0:
-                for i in range(8):
+                for i in range(32):
                     runeOffset = matchSizeIndexAtPosition(runeSizes, 0, -startY + (i // 2) * (1 if i % 2 == 0 else -1))
                     if runeOffset is not None:
                         break
@@ -795,7 +807,7 @@ def _text_formatter_draw(textFormatter: _TextFormatter, screen: Rectangle) -> No
                 rune = text[runeIndex]
                 _driver_set_content(driver, x, y, rune)
     pass
-def _text_formatter_get_computed_lines(textFormatter: _TextFormatter) -> list[list[_Rune]]:
+def __text_formatter_get_computed_lines(textFormatter: _TextFormatter) -> list[list[_Rune]]:
     driver = textFormatter["driver"]
     text = textFormatter["text"]
     multiline = textFormatter["multiline"]
@@ -1601,6 +1613,19 @@ def _view_transform_frame_to_screen(view: _View) -> Point:
         currentViewportOffset = _thickness_compute_inside(_adornment_get_thickness(currentPadding), _adornment_get_frame(currentPadding))
         result = Point(result.x + currentViewportOffset.x + currentFrame.x - currentViewportPosition.x, result.y + currentViewportOffset.y + currentFrame.y - currentViewportPosition.y)
         current = current["superview"]
+    return result
+def _view_transform_frame_to_superview(view: _View, superview: _View) -> Point:
+    result = rectangle_get_point(view["frame"])
+    current = view["superview"]
+    while current is not None and current is not superview:
+        currentFrame = current["frame"]
+        currentViewportPosition = current["viewportPosition"]
+        currentPadding = current["padding"]
+        currentViewportOffset = _thickness_compute_inside(_adornment_get_thickness(currentPadding), _adornment_get_frame(currentPadding))
+        result = Point(result.x + currentViewportOffset.x + currentFrame.x - currentViewportPosition.x, result.y + currentViewportOffset.y + currentFrame.y - currentViewportPosition.y)
+        current = current["superview"]
+    if current is not superview:
+        return None
     return result
 def _view_transform_viewport_to_screen(view: _View, point: Point) -> Point:
     screen = _view_transform_frame_to_screen(view)

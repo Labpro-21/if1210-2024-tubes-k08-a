@@ -112,3 +112,30 @@ def __tick_potion(gameTime: float, activePotion: tuple[float, float, PotionSchem
     return (additionalHealthPoints, additionalAttackPower, additionalDefensePower, newActivePotion)
 
 # immediate permanent buffs: set type="HealthIndefinite", duration=1
+
+def _inventory_item_get(gameState: GameState, inventoryItemId: int) -> InventoryItemSchemaType:
+    inventoryItemDatabase = gamestate_get_inventory_item_database(gameState)
+    return database_get_entry_at(inventoryItemDatabase, inventoryItemId)
+
+def _inventory_item_set(gameState: GameState, inventoryItemId: int, modifier: Union[InventoryItemSchemaType, Callable[[InventoryItemSchemaType], InventoryItemSchemaType]]) -> InventoryItemSchemaType:
+    inventoryItemDatabase = gamestate_get_inventory_item_database(gameState)
+    inventoryItem = modifier(database_get_entry_at(inventoryItemDatabase, inventoryItemId)) if callable(modifier) else modifier
+    database_set_entry_at(inventoryItemDatabase, inventoryItemId, inventoryItem)
+    return inventoryItem
+
+def _inventory_item_new(gameState: GameState) -> InventoryItemSchemaType:
+    inventoryItemDatabase = gamestate_get_inventory_item_database(gameState)
+    inventoryItemId = database_get_entries_length(inventoryItemDatabase)
+    inventoryItem = InventoryItemSchemaType(
+        id=inventoryItemId,
+        ownerId=None,
+        referenceId=None,
+        quantity=None,
+    )
+    database_set_entry_at(inventoryItemDatabase, inventoryItemId, inventoryItem)
+    return inventoryItem
+
+def _inventory_item_get_user_items(gameState: GameState, userId: int) -> list[InventoryItemSchemaType]:
+    inventoryItemDatabase = gamestate_get_inventory_item_database(gameState)
+    inventoryItemEntries = database_get_entries(inventoryItemDatabase)
+    return array_filter(inventoryItemEntries, lambda m, *_: m.ownerId == userId)

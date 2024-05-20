@@ -45,8 +45,12 @@ def _visual_get_directory(visual: _Visual) -> str:
     return visual["directory"]
 def _visual_set_view(visual: _Visual, view: View) -> None:
     toplevel = visual["toplevel"]
+    driver = visual["driver"]
+    if visual["view"] is view:
+        return
     if visual["view"] is not None:
         view_remove_child(toplevel, visual["view"])
+    driver_clear_rect(driver)
     visual["view"] = view
     if view is None:
         return
@@ -149,12 +153,12 @@ def _visual_remove_disconnect_listener(visual: _Visual, view: View, callback: Ca
 def __visual_attach_connect_handler(visual: _Visual, view: View) -> None:
     connectListeners = None
     propagateHandler = None
-    if connectListeners is None:
+    if "__connect_listeners" not in view:
         connectListeners = []
         view["__connect_listeners"] = connectListeners
     else:
         connectListeners = view["__connect_listeners"]
-    if propagateHandler is None:
+    if "__connect_propagate_handler" not in view:
         def propagateToSubviews() -> None:
             view["__connected"] = True
             subviews = view["subviews"]
@@ -174,12 +178,12 @@ def __visual_attach_connect_handler(visual: _Visual, view: View) -> None:
 def __visual_attach_disconnect_handler(visual: _Visual, view: View) -> None:
     disconnectListeners = None
     propagateHandler = None
-    if disconnectListeners is None:
+    if "__disconnect_listeners" not in view:
         disconnectListeners = []
         view["__disconnect_listeners"] = disconnectListeners
     else:
         disconnectListeners = view["__disconnect_listeners"]
-    if propagateHandler is None:
+    if "__disconnect_propagate_handler" not in view:
         def propagateToSubviews() -> None:
             view["__connected"] = False
             subviews = view["subviews"]
@@ -216,12 +220,12 @@ def _visual_remove_key_listener(visual: _Visual, view: View, callback: Callable[
 def __visual_attach_key_handler(visual: _Visual, view: View) -> None:
     keyListeners = None
     propagateHandler = None
-    if keyListeners is None:
+    if "__key_listeners" not in view:
         keyListeners = []
         view["__key_listeners"] = keyListeners
     else:
         keyListeners = view["__key_listeners"]
-    if propagateHandler is None:
+    if "__key_propagate_handle" not in view:
         def propagateToSubviews(event: KeyEvent) -> None:
             subviews = view["subviews"]
             for subview in subviews:
@@ -273,19 +277,29 @@ def _visual_load_splash(visual: _Visual, name: str, progress: Callable[[float], 
 
 def _visual_show_frame_sequence(
         visual: _Visual, 
-        frames: list[__Text], 
+        frames: list[__Text], /,
+        x: Pos = pos_from_center(),
+        y: Pos = pos_from_center(),
+        width: Dim = dim_from_fill(0),
+        height: Dim = dim_from_fill(0),
+        border: tuple = (0, 0, 0, 0),
+        padding: tuple = (0, 0, 0, 0),
+        horizontalAlignment: TextHorizontalAlignment = "Center",
+        verticalAlignment: TextVerticalAlignment = "Middle",
         parent: Optional[View] = None
     ) -> View:
     driver = visual["driver"]
     mainView = view_new(driver)
-    view_set_x(mainView, pos_from_factor(0))
-    view_set_y(mainView, pos_from_factor(0))
-    view_set_width(mainView, dim_from_factor(1))
-    view_set_height(mainView, dim_from_factor(1))
+    view_set_x(mainView, x)
+    view_set_y(mainView, y)
+    view_set_width(mainView, width)
+    view_set_height(mainView, height)
+    adornment_set_thickness(view_get_border(mainView), Thickness(*border))
+    adornment_set_thickness(view_get_padding(mainView), Thickness(*padding))
     textFormatter = view_get_text_formatter(mainView)
     text_formatter_set_wordwrap(textFormatter, False)
-    text_formatter_set_horizontal_alignment(textFormatter, "Center")
-    text_formatter_set_vertical_alignment(textFormatter, "Middle")
+    text_formatter_set_horizontal_alignment(textFormatter, horizontalAlignment)
+    text_formatter_set_vertical_alignment(textFormatter, verticalAlignment)
 
     __visual_attach_mock_view_add_remove_child_method(visual, mainView)
     __visual_attach_connect_handler(visual, mainView)
@@ -327,17 +341,23 @@ def _visual_show_frame_sequence(
         nonlocal handle
         if handle is not None:
             stop()
+        if len(frames) <= 1:
+            setFrame(0)
+            return
         def loop():
             nonlocal handle
             if nextFrame():
-                return
+                return True
             if not loopFrame:
                 stop()
-                return
+                return False
             setFrame(0)
+            return True
         if not _visual_is_connected(visual, mainView):
             onConnectCb = lambda: onConnect((fps, loopFrame))
             _visual_add_connect_listener(visual, mainView, onConnectCb)
+            return
+        if not loop():
             return
         onDisconnectCb = lambda: onDisconnect((fps, loopFrame))
         _visual_add_disconnect_listener(visual, mainView, onDisconnectCb)
@@ -369,11 +389,11 @@ def _visual_show_frame_sequence(
 def _visual_show_splash(
         visual: _Visual, 
         splash: str,
-        parent: Optional[View] = None
+        **kwargs
     ) -> View:
     splashes = visual["splashes"]
     splash = splashes[splash]
-    return _visual_show_frame_sequence(visual, splash, parent)
+    return _visual_show_frame_sequence(visual, splash, **kwargs)
 
 def _visual_show_simple_dialog(
         visual: _Visual,
@@ -384,10 +404,10 @@ def _visual_show_simple_dialog(
         y: Pos = pos_from_center(),
         width: Dim = dim_from_factor(0.5),
         height: Dim = dim_from_factor(0.5),
-        horizontalAlignment: TextHorizontalAlignment = "Left",
-        verticalAlignment: TextVerticalAlignment = "Top",
         border: tuple = (1, 1, 1, 1),
         padding: tuple = (2, 1, 2, 1),
+        horizontalAlignment: TextHorizontalAlignment = "Left",
+        verticalAlignment: TextVerticalAlignment = "Top",
         parent: Optional[View] = None
     ) -> View:
     driver = visual["driver"]
@@ -415,7 +435,7 @@ def _visual_show_simple_dialog(
     contentView = view_new(driver)
     view_add_child(mainView, contentView)
     view_set_x(contentView, pos_from_absolute(0))
-    view_set_y(contentView, pos_from_absolute(2 if title is not None else 0))
+    view_set_y(contentView, pos_from_view_bottom(titleView) if titleView is not None else pos_from_absolute(0))
     view_set_width(contentView, dim_from_fill(0))
     view_set_height(contentView, dim_from_fill(0))
     textFormatter = view_get_text_formatter(contentView)
@@ -438,16 +458,272 @@ def _visual_show_simple_dialog(
         _visual_set_view(visual, mainView)
     return mainView
 
+def _visual_show_table(
+        visual: _Visual,
+        columns: list[tuple[__Text, float]],
+        rows: list[list[__Text]], /,
+        x: Pos = pos_from_absolute(0),
+        y: Pos = pos_from_absolute(0),
+        width: Dim = dim_from_fill(0),
+        height: Dim = dim_from_fill(0),
+        parent: Optional[View] = None
+    ) -> View:
+    driver = visual["driver"]
+    mainView = view_new(driver)
+    view_set_x(mainView, x)
+    view_set_y(mainView, y)
+    view_set_width(mainView, width)
+    view_set_height(mainView, height)
+
+    lastColumns: list[tuple[__Text, float]] = None
+    rowViews: list[View] = []
+    patchViews: list[View] = []
+    cellValuePadX = [Rune(" ", RuneAttribute_clear) for _ in range(0, 50)]
+    cellValuePadY = array_flat([[Rune("\n", RuneAttribute_clear), *cellValuePadX, Rune("\n", RuneAttribute_clear)] for _ in range(0, 5)])
+    def addPatch(patchCharacter: str, patchPosX: Pos, patchPosY: Pos):
+        patchView = view_new(driver)
+        array_push(patchViews, patchView)
+        view_set_x(patchView, patchPosX)
+        view_set_y(patchView, patchPosY)
+        view_set_width(patchView, dim_from_absolute(1))
+        view_set_height(patchView, dim_from_absolute(1))
+        patchTextFormatter = view_get_text_formatter(patchView)
+        text_formatter_set_text(patchTextFormatter, [Rune(patchCharacter, RuneAttribute_clear)])
+    def updateCellTextView(cellTextView: View, value: __Text, alignment: Optional[str]):
+        textFormatter = view_get_text_formatter(cellTextView)
+        text_formatter_set_wordwrap(textFormatter, False)
+        parsedCellValue = __parse_colored_text(value)[0]
+        if alignment is not None:
+            paddedText = parsedCellValue
+            if string_starts_with(alignment, "Left"):
+                paddedText = [*paddedText, *cellValuePadX]
+                text_formatter_set_horizontal_alignment(textFormatter, "Left")
+            if string_starts_with(alignment, "Center"):
+                paddedText = [*cellValuePadX, *paddedText, *cellValuePadX]
+                text_formatter_set_horizontal_alignment(textFormatter, "Center")
+            if string_starts_with(alignment, "Right"):
+                paddedText = [*cellValuePadX, *paddedText]
+                text_formatter_set_horizontal_alignment(textFormatter, "Right")
+            if string_ends_with(alignment, "Top"):
+                paddedText = [*paddedText, *cellValuePadY]
+                text_formatter_set_vertical_alignment(textFormatter, "Top")
+            if string_ends_with(alignment, "Middle"):
+                paddedText = [*cellValuePadY, *paddedText]
+                text_formatter_set_vertical_alignment(textFormatter, "Middle")
+            if string_ends_with(alignment, "Bottom"):
+                paddedText = [*cellValuePadY, *paddedText, *cellValuePadY]
+                text_formatter_set_vertical_alignment(textFormatter, "Bottom")
+            cellTextView["originalText"] = paddedText
+            text_formatter_set_text(textFormatter, paddedText)
+        else:
+            paddedText = [*parsedCellValue, *cellValuePadX]
+            cellTextView["originalText"] = paddedText
+            text_formatter_set_text(textFormatter, paddedText)
+    def updateTable(columns: list[tuple[__Text, float]], rows: list[list[__Text]]):
+        nonlocal lastColumns, lastSelectableIndex
+        for rowView in array_splice(rowViews, 0):
+            view_remove_child(mainView, rowView)
+        for patchView in array_splice(patchViews, 0):
+            view_remove_child(mainView, patchView)
+        
+        lastColumns = columns
+        rows = array_slice(rows)
+        array_unshift(rows, array_map(columns, lambda c, *_: c[0]))
+        lastRowView = None
+        for i in range(0, len(rows)):
+            rowData = rows[i]
+            rowView = view_new(driver)
+            array_push(rowViews, rowView)
+            view_add_child(mainView, rowView)
+            view_set_x(rowView, pos_from_absolute(0))
+            view_set_y(rowView, pos_from_view_bottom(lastRowView) if lastRowView is not None else pos_from_absolute(0))
+            view_set_width(rowView, dim_from_fill(0))
+            view_set_height(rowView, dim_from_absolute(3 if i == 0 else 2))
+
+            cellViews = []
+            rowView["cellViews"] = cellViews
+            lastCellView = None
+            for j in range(0, len(columns)):
+                columnSize = columns[j][1]
+                cellView = view_new(driver)
+                array_push(cellViews, cellView)
+                view_add_child(rowView, cellView)
+                view_set_x(cellView, pos_from_view_right(lastCellView) if lastCellView is not None else pos_from_absolute(0))
+                view_set_y(cellView, pos_from_absolute(0))
+                view_set_width(cellView, dim_from_factor(columnSize) if type(columnSize) is float else dim_add(columnSize, dim_from_absolute(2 if j == 0 else 1)) if dim_as_absolute(columnSize) else columnSize)
+                view_set_height(cellView, dim_from_fill(0))
+                adornment_set_thickness(view_get_border(cellView), Thickness(1 if j == 0 else 0, 1 if i == 0 else 0, 1, 1))
+                if len(columns[j]) > 3:
+                    padding = columns[j][3]
+                    adornment_set_thickness(view_get_padding(cellView), Thickness(*padding))
+
+                cellTextView = view_new(driver)
+                cellView["textView"] = cellTextView
+                view_add_child(cellView, cellTextView)
+                view_set_x(cellTextView, pos_from_absolute(0))
+                view_set_y(cellTextView, pos_from_absolute(0))
+                view_set_width(cellTextView, dim_from_fill(0))
+                view_set_height(cellTextView, dim_from_fill(0))
+                updateCellTextView(cellTextView, rowData[j], columns[j][2] if len(columns[j]) > 2 else None)
+
+                patchCharacter = None
+                patchPosX = None
+                patchPosY = None
+                if i == 0 and j != 0:
+                    addPatch(
+                        "┬",
+                        pos_sub(pos_from_view_left(cellView), pos_from_absolute(1)),
+                        pos_from_view_top(cellView)
+                    )
+                if i == len(rows) - 1 and j != 0:
+                    addPatch(
+                        "┴",
+                        pos_sub(pos_from_view_left(cellView), pos_from_absolute(1)),
+                        pos_sub(pos_from_view_bottom(cellView), pos_from_absolute(1))
+                    )
+                if i != 0 and j == 0:
+                    addPatch(
+                        "├",
+                        pos_from_view_left(cellView),
+                        pos_sub(pos_from_view_top(cellView), pos_from_absolute(1))
+                    )
+                if i != 0 and j == len(columns) - 1:
+                    addPatch(
+                        "┤",
+                        pos_sub(pos_from_view_right(cellView), pos_from_absolute(1)),
+                        pos_sub(pos_from_view_top(cellView), pos_from_absolute(1))
+                    )
+                if i != 0 and j != 0:
+                    addPatch(
+                        "┼",
+                        pos_sub(pos_from_view_left(cellView), pos_from_absolute(1)),
+                        pos_sub(pos_from_view_top(cellView), pos_from_absolute(1))
+                    )
+                
+                lastCellView = cellView
+            lastRowView = rowView
+        
+        for patchView in patchViews:
+            view_add_child(mainView, patchView)
+        lastSelectableIndex = -1
+        selectableChange()
+    def updateRows(rows: list[list[__Text]]) -> None:
+        nonlocal lastColumns, lastSelectableIndex
+        if len(rows) != len(rowViews) - 1:
+            updateTable(lastColumns, rows)
+            return
+        # Fasttrack
+        for i in range(0, len(rows)):
+            rowData = rows[i]
+            rowView = rowViews[i + 1]
+            cellViews = rowView["cellViews"]
+            for j in range(0, len(columns)):
+                cellView = cellViews[j]
+                cellTextView = cellView["textView"]
+                updateCellTextView(cellTextView, rowData[j], columns[j][2] if len(columns[j]) > 2 else None)
+        lastSelectableIndex = -1
+        selectableChange()
+
+    __visual_attach_mock_view_add_remove_child_method(visual, mainView)
+    __visual_attach_connect_handler(visual, mainView)
+    __visual_attach_disconnect_handler(visual, mainView)
+    __visual_attach_key_handler(visual, mainView)
+    
+    selectable = False
+    selectableIndex = -1
+    lastSelectableIndex = -1
+    hoverListener = None
+    enterListener = None
+    def selectable0(value: bool) -> Optional[bool]:
+        nonlocal selectable
+        if value is None:
+            return selectable
+        selectable = value
+        selectableChange()
+        if selectable:
+            _visual_add_key_listener(visual, mainView, onKey)
+        else:
+            _visual_remove_key_listener(visual, mainView, onKey)
+    def onHover(value: Callable[[int], Any]) -> None:
+        nonlocal hoverListener
+        hoverListener = value
+    def onEnter(value: Callable[[int], Any]) -> None:
+        nonlocal enterListener
+        enterListener = value
+    def setSelection(index: int) -> None:
+        nonlocal selectableIndex
+        selectableIndex = index
+        selectableChange()
+    def selectableChange():
+        nonlocal selectable, selectableIndex, lastSelectableIndex, hoverListener
+        if selectableIndex < -1:
+            selectableIndex = -1
+        if selectableIndex >= len(rowViews) - 1:
+            selectableIndex = len(rowViews) - 2
+        if selectable and selectableIndex == lastSelectableIndex:
+            return
+        if lastSelectableIndex != -1:
+            rowView = rowViews[lastSelectableIndex + 1]
+            cellViews = rowView["cellViews"]
+            for cellView in cellViews:
+                cellTextView = cellView["textView"]
+                originalText = cellTextView["originalText"]
+                textFormatter = view_get_text_formatter(cellTextView)
+                text_formatter_set_text(textFormatter, originalText)
+        if not selectable:
+            lastSelectableIndex = -1
+            if hoverListener is not None:
+                hoverListener(-1)
+            return
+        if selectableIndex != -1:
+            rowView = rowViews[selectableIndex + 1]
+            cellViews = rowView["cellViews"]
+            for cellView in cellViews:
+                cellTextView = cellView["textView"]
+                originalText = cellTextView["originalText"]
+                reversedColoredText = __reverse_background_foreground(originalText)
+                textFormatter = view_get_text_formatter(cellTextView)
+                text_formatter_set_text(textFormatter, reversedColoredText)
+        lastSelectableIndex = selectableIndex
+        if hoverListener is not None:
+            hoverListener(selectableIndex)
+    def onKey(event: KeyEvent):
+        nonlocal selectable, selectableIndex, enterListener
+        if not selectable or len(rowViews) < 1:
+            return
+        if event.key == "ControlCR" or event.key == "ControlLF":
+            if selectableIndex == -1 or enterListener is None:
+                return
+            enterListener(selectableIndex)
+            return
+        if event.key == "Up":
+            selectableIndex = max(0, selectableIndex - 1) if selectableIndex != -1 else len(rowViews) - 2
+            selectableChange()
+            return
+        if event.key == "Down":
+            selectableIndex = min(len(rowViews) - 2, selectableIndex + 1) if selectableIndex != -1 else 0
+            selectableChange()
+            return
+    updateTable(columns, rows)
+    mainView["rowViews"] = rowViews
+    mainView["patchViews"] = patchViews
+    mainView["updateTable"] = updateTable
+    mainView["updateRows"] = updateRows
+    mainView["selectable"] = selectable0
+    mainView["onHover"] = onHover
+    mainView["onEnter"] = onEnter
+    mainView["setSelection"] = setSelection
+    if parent is not None:
+        view_add_child(parent, mainView)
+    else:
+        _visual_set_view(visual, mainView)
+    return mainView
+
 _ConsoleMock = tuple[Callable[[__Text], None], Callable[[__Text], Promise[str]], Callable[[str, Any], None]]
 def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
     driver = visual["driver"]
     setTitle = view["setTitle"]
     setContent = view["setContent"]
-    lastDrawing: Optional[float] = None
-    drawingOnCompletes: list[Callable[[], None]] = []
-    contentLastAttribute = RuneAttribute_clear
-    content: list[Rune] = []
-    contentDrawnPosition = 0
     flagsStack: list[dict[str, Any]] = []
     flags = dict_with(
         dict(
@@ -457,12 +733,20 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
             selectableWaitAfterContent=True,
             selectableClearAfterSelection=True,
             selectableAllowEscape=True,
+            selectableAlignment="CenterMiddle",
             inputWaitAfterContent=True,
             inputAllowEscape=True,
+            inputBoxOffset=1,
             doNotRaiseSignal=False
         ),
         **kwargs
     )
+
+    lastDrawing: Optional[float] = None
+    drawingOnCompletes: list[Callable[[], None]] = []
+    contentLastAttribute = RuneAttribute_clear
+    content: list[Rune] = []
+    contentDrawnPosition = 0
     printKeyListenerAttached = False
     def onPrintKey(event: KeyEvent):
         nonlocal contentDrawnPosition
@@ -470,10 +754,20 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
             if not flags["keyAnimationAllowSkip"]:
                 return
             contentDrawnPosition = len(content)
-            doPrintDraw()
+            setContent(content)
     def doPrintDraw():
         nonlocal lastDrawing, contentDrawnPosition, printKeyListenerAttached
         if not _visual_is_connected(visual, view):
+            return
+        keySpeed = flags["keySpeed"]
+        if keySpeed == -1:
+            contentDrawnPosition = len(content)
+            setContent(content)
+            if printKeyListenerAttached:
+                _visual_remove_key_listener(visual, view, onPrintKey)
+                printKeyListenerAttached = False
+            for drawingOnComplete in array_splice(drawingOnCompletes, 0):
+                drawingOnComplete()
             return
         now = __now()
         deltaTime = now - lastDrawing if lastDrawing is not None else 0
@@ -489,7 +783,6 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
         if not printKeyListenerAttached:
             _visual_add_key_listener(visual, view, onPrintKey)
             printKeyListenerAttached = True
-        keySpeed = flags["keySpeed"]
         advancePosition = keySpeed * deltaTime / 1000 if keySpeed != -1 else len(content) - contentDrawnPosition
         contentDrawnPosition += advancePosition
         contentDrawnPosition = min(contentDrawnPosition, len(content))
@@ -502,6 +795,11 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
         def executor(resolve, _):
             array_push(drawingOnCompletes, lambda: resolve(None))
         return promise_new(executor)
+    def clearPrint():
+        array_splice(content, 0)
+        contentDrawnPosition = 0
+        contentLastAttribute = RuneAttribute_clear
+        doPrintDraw()
     def recognizeTitle(text: list[Rune]) -> Optional[list[Rune]]:
         string = array_join(array_map(text, lambda r, *_: r.character), "")
         indexStart = string_index_of(string, "==== ")
@@ -513,13 +811,47 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
             return None
         return array_slice(text, indexStart, indexEnd)
     _visual_add_connect_listener(visual, view, doPrintDraw)
+
+    def encapsulatePromise(promise: Promise[Any], kwargs: dict, onSignalCb: Callable[[], Any] = None) -> Promise[Any]:
+        if "signal" not in kwargs or kwargs["signal"] is None:
+            return promise
+        doneFirst = False
+        def onResolve(result):
+            nonlocal doneFirst
+            doneFirst = True
+            return result
+        promise = promise_then(promise, onResolve)
+        signal = kwargs["signal"]
+        signalPromise = promise_from_abortsignal(signal)
+        if flags["doNotRaiseSignal"]:
+            def onReject(_):
+                nonlocal doneFirst
+                if doneFirst:
+                    return signal
+                if onSignalCb is not None:
+                    onSignalCb()
+                return signal
+            signalPromise = promise_catch(signalPromise, onSignalCb)
+        elif onSignalCb is not None:
+            def onReject(reason):
+                nonlocal doneFirst
+                if not doneFirst:
+                    onSignalCb()
+                raise reason
+            signalPromise = promise_catch(signalPromise, onSignalCb)
+        return promise_race([promise, signalPromise])
+
     selectableIndex = -1
     selectables: list[View] = []
     selectableDescription: View = None
     selectableListeners: list[Callable[[str], None]] = []
     lastSelectableIndex = -1
     lastSelectables: list[View] = []
-    def newSelectable(message: __Text, description: __Text, /, id: Any = None) -> None:
+    def newSelectable(
+            message: __Text, 
+            description: __Text, /, 
+            id: Any = None, 
+            onChange: Callable[[bool], Any] = None):
         nonlocal contentLastAttribute
         message, contentLastAttribute = __parse_colored_text(message, contentLastAttribute)
         if description is not None:
@@ -534,6 +866,7 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
         selectable["selectableId"] = id
         selectable["selectableMessage"] = message
         selectable["selectableDescription"] = description
+        selectable["selectableOnChange"] = onChange
         array_push(selectables, selectable)
         layoutSelectable()
         selectableChange()
@@ -568,10 +901,21 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
             view_set_height(selectableDescription, dim_from_absolute(2))
             adornment_set_thickness(view_get_border(selectableDescription), Thickness(0, 1, 0, 0))
             _visual_add_key_listener(visual, view, selectableOnKey)
+        selectableAlignment = flags["selectableAlignment"]
         for i in range(len(selectables)):
             selectable = selectables[i]
-            view_set_x(selectable, pos_from_center())
-            view_set_y(selectable, pos_add(pos_from_center(), pos_from_absolute(i - (len(selectables) // 2) + 2)))
+            if string_starts_with(selectableAlignment, "Left"):
+                view_set_x(selectable, pos_from_absolute(0))
+            if string_starts_with(selectableAlignment, "Center"):
+                view_set_x(selectable, pos_from_center())
+            if string_starts_with(selectableAlignment, "Right"):
+                view_set_x(selectable, pos_from_end())
+            if string_ends_with(selectableAlignment, "Top"):
+                view_set_y(selectable, pos_from_absolute(i + 2))
+            if string_ends_with(selectableAlignment, "Middle"):
+                view_set_y(selectable, pos_add(pos_from_center(), pos_from_absolute(i - (len(selectables) // 2) + 2)))
+            if string_ends_with(selectableAlignment, "Bottom"):
+                view_set_y(selectable, pos_sub(pos_from_end(), pos_from_absolute(len(selectables) - i - 1)))
             view_set_width(selectable, dim_from_fill(0))
             view_set_height(selectable, dim_from_absolute(1))
     def selectableChange():
@@ -587,6 +931,9 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
             textFormatter = view_get_text_formatter(selectable)
             message = selectable["selectableMessage"]
             text_formatter_set_text(textFormatter, message)
+            onChange = selectable["selectableOnChange"]
+            if onChange is not None:
+                onChange(False)
         if selectableIndex != -1:
             selectable = selectables[selectableIndex]
             textFormatter = view_get_text_formatter(selectable)
@@ -599,6 +946,9 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
                 view_add_child(view, selectableDescription)
             else:
                 view_remove_child(view, selectableDescription)
+            onChange = selectable["selectableOnChange"]
+            if onChange is not None:
+                onChange(True)
         else:
             view_remove_child(view, selectableDescription)
         lastSelectableIndex = selectableIndex
@@ -632,28 +982,18 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
             selectableIndex = min(len(selectables) - 1, selectableIndex + 1) if selectableIndex != -1 else 0
             selectableChange()
             return
-    def print(message: __Text, *args, end: __Text = "\n", **kwargs) -> Any:
-        nonlocal lastDrawing, contentLastAttribute
-        additionalContent, contentLastAttribute = __parse_colored_text(message, contentLastAttribute)
-        if flags["hasTitle"]:
-            titleText = recognizeTitle(additionalContent)
-            if titleText is not None:
-                additionalContent = []
-                setTitle(titleText)
-                return
-        array_push(content, *additionalContent)
-        additionalContent, contentLastAttribute = __parse_colored_text(end, contentLastAttribute)
-        array_push(content, *additionalContent)
-        if lastDrawing is not None:
-            return
-        doPrintDraw()
+
     inputParent: View = None
     inputDescription: View = None
     inputIndex = -1
     inputViews: list[View] = []
     lastInputIndex = -1
     lastInputViews: list[View] = []
-    def newInput(message: __Text, description: __Text, /, renderer: Callable[[list[Rune]], list[Rune]] = None, signal: AbortSignal = None):
+    def newInput(
+            message: __Text, 
+            description: __Text, /, 
+            renderer: Callable[[list[Rune]], list[Rune]] = None, 
+            onChange: Callable[[str], Any] = None, signal: AbortSignal = None):
         nonlocal inputIndex, contentLastAttribute
         message, contentLastAttribute = __parse_colored_text(message, contentLastAttribute)
         if description is not None:
@@ -670,6 +1010,7 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
         inputView["inputOffset"] = 0
         inputView["inputCursor"] = -1
         inputView["inputValueRenderer"] = renderer
+        inputView["inputOnChange"] = onChange
         def update():
             message = array_slice(inputView["inputMessage"])
             done = inputView["inputDone"]
@@ -743,8 +1084,9 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
             return
         if inputParent is None:
             inputParent = view_new(driver)
+            inputBoxOffset = flags["inputBoxOffset"]
             view_set_x(inputParent, pos_from_center())
-            view_set_y(inputParent, pos_add(pos_from_center(), pos_from_absolute(1)))
+            view_set_y(inputParent, pos_add(pos_from_center(), pos_from_absolute(inputBoxOffset)))
             view_set_width(inputParent, dim_from_factor(0.8))
             view_set_height(inputParent, dim_from_absolute(0))
             adornment_set_thickness(view_get_border(inputParent), Thickness(1, 1, 1, 1))
@@ -896,19 +1238,6 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
             inputCurrent["inputCursor"] = len(inputCurrent["inputValue"])
             inputCurrent["inputUpdate"]()
             return
-        if event.key == "ControlBS":
-            if inputIndex == -1:
-                return
-            inputCurrent = inputViews[inputIndex]
-            value = inputCurrent["inputValue"]
-            cursor = inputCurrent["inputCursor"]
-            valueBefore = array_slice(value, 0, cursor - 1)
-            valueAfter = array_slice(value, cursor)
-            inputCurrent["inputValue"] = valueBefore + valueAfter
-            if inputCurrent["inputCursor"] > 0:
-                inputCurrent["inputCursor"] -= 1
-            inputCurrent["inputUpdate"]()
-            return
         if event.code == "KeyA" and event.ctrlKey:
             if inputIndex == -1:
                 return
@@ -923,18 +1252,55 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
                 inputCurrent["__inputValueRenderer"] = None
                 inputCurrent["inputUpdate"]()
             return
+        if event.key == "ControlBS":
+            if inputIndex == -1:
+                return
+            inputCurrent = inputViews[inputIndex]
+            value = inputCurrent["inputValue"]
+            cursor = inputCurrent["inputCursor"]
+            onChange = inputCurrent["inputOnChange"]
+            if cursor == 0:
+                return
+            valueBefore = array_slice(value, 0, cursor - 1)
+            valueAfter = array_slice(value, cursor)
+            inputCurrent["inputValue"] = valueBefore + valueAfter
+            if inputCurrent["inputCursor"] > 0:
+                inputCurrent["inputCursor"] -= 1
+            inputCurrent["inputUpdate"]()
+            if onChange is not None:
+                onChange(inputCurrent["inputValue"])
+            return
         if len(event.key) == 1:
             if inputIndex == -1:
                 return
             inputCurrent = inputViews[inputIndex]
             value = inputCurrent["inputValue"]
             cursor = inputCurrent["inputCursor"]
+            onChange = inputCurrent["inputOnChange"]
             valueBefore = array_slice(value, 0, cursor)
             valueAfter = array_slice(value, cursor)
             inputCurrent["inputValue"] = valueBefore + event.key + valueAfter
             inputCurrent["inputCursor"] += 1
             inputCurrent["inputUpdate"]()
+            if onChange is not None:
+                onChange(inputCurrent["inputValue"])
             return
+    
+    def print(message: __Text, *args, end: __Text = "\n", **kwargs) -> Any:
+        nonlocal lastDrawing, contentLastAttribute
+        additionalContent, contentLastAttribute = __parse_colored_text(message, contentLastAttribute)
+        if flags["hasTitle"]:
+            titleText = recognizeTitle(additionalContent)
+            if titleText is not None:
+                additionalContent = []
+                setTitle(titleText)
+                return
+        array_push(content, *additionalContent)
+        additionalContent, contentLastAttribute = __parse_colored_text(end, contentLastAttribute)
+        array_push(content, *additionalContent)
+        if lastDrawing is not None:
+            return
+        doPrintDraw()
     def input(message: __Text, *args, **kwargs) -> Any:
         if "selectable" in kwargs and kwargs["selectable"]:
             del kwargs["selectable"]
@@ -947,36 +1313,8 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
         if flags["inputWaitAfterContent"]:
             return encapsulatePromise(promise_then(waitPrintDrawComplete(), do), kwargs)
         return do()
-    def encapsulatePromise(promise: Promise[Any], kwargs: dict, onSignalCb: Callable[[], Any] = None) -> Promise[Any]:
-        if "signal" not in kwargs or kwargs["signal"] is None:
-            return promise
-        doneFirst = False
-        def onResolve(result):
-            nonlocal doneFirst
-            doneFirst = True
-            return result
-        promise = promise_then(promise, onResolve)
-        signal = kwargs["signal"]
-        signalPromise = promise_from_abortsignal(signal)
-        if flags["doNotRaiseSignal"]:
-            def onReject(_):
-                nonlocal doneFirst
-                if doneFirst:
-                    return signal
-                if onSignalCb is not None:
-                    onSignalCb()
-                return signal
-            signalPromise = promise_catch(signalPromise, onSignalCb)
-        elif onSignalCb is not None:
-            def onReject(reason):
-                nonlocal doneFirst
-                if not doneFirst:
-                    onSignalCb()
-                raise reason
-            signalPromise = promise_catch(signalPromise, onSignalCb)
-        return promise_race([promise, signalPromise])
     def metaAction(action: str, kwargs: dict) -> Any:
-        nonlocal contentLastAttribute
+        nonlocal contentDrawnPosition, contentLastAttribute
         if action == "getVisual":
             return visual
         if action == "getRootView":
@@ -998,13 +1336,15 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
                 dict_clear(flags)
                 dict_set(flags, lastFlag)
             return
+        if action == "foreign":
+            return __ConsoleMockClosureType((print, input, meta))
         if action == "clear":
-            array_splice(content, 0)
-            drawnContentPosition = 0
-            contentLastAttribute = RuneAttribute_clear
+            clearPrint()
             clearSelectables()
             clearInputs()
-            doPrintDraw()
+            return
+        if action == "clearPrint":
+            clearPrint()
             return
         if action == "waitContent":
             return encapsulatePromise(waitPrintDrawComplete(), kwargs)
@@ -1024,7 +1364,6 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
             return
         raise f"Unknown action {action}"
     def meta(*args, **kwargs) -> Any:
-        nonlocal contentDrawnPosition, contentLastAttribute
         if len(args) == 2 and type(args[0]) is str:
             name = args[0]
             value = args[1]
@@ -1037,6 +1376,33 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
             action = kwargs["action"]
             return metaAction(action, kwargs)
     return (print, input, meta)
+
+def __make_console_mock_closure_type():
+    import builtins
+    def __init__(self, console: _ConsoleMock):
+        self.console = console
+        self.lastConsole = None
+    def __enter__(self):
+        lastPrint = builtins.print
+        lastInput = builtins.input
+        lastMeta = builtins.meta if hasattr(builtins, "meta") else None
+        self.lastConsole = (lastPrint, lastInput, lastMeta)
+        builtins.print = self.console[0]
+        builtins.input = self.console[1]
+        builtins.meta = self.console[2]
+    def __exit__(self, *_):
+        builtins.print = self.lastConsole[0]
+        builtins.input = self.lastConsole[1]
+        builtins.meta = self.lastConsole[2]
+        self.lastConsole = None
+        return False
+    ConsoleMockClosureType = type("ConsoleMockClosure", (object,), dict(
+        __init__=__init__,
+        __enter__=__enter__,
+        __exit__=__exit__
+    ))
+    return ConsoleMockClosureType
+__ConsoleMockClosureType = __make_console_mock_closure_type()
 
 def _fg(r: Union[int, str] = None, g: int = None, b: int = None) -> str:
     if r is None and g is None and b is None:
@@ -1074,8 +1440,13 @@ def __now() -> float:
 def __load_splash_suspendable(state, args):
     if state == SuspendableInitial:
         path, progress = args
-        rawFrames = csv_read_from_file(path)
-        rawFrames = array_map(rawFrames, lambda f, *_: array_join(f, "\n"))
+        rawFrames = None
+        if string_ends_with(path, ".gif.txt"):
+            rawFrames = csv_read_from_file(path)
+            rawFrames = array_map(rawFrames, lambda f, *_: array_join(f, "\n"))
+        if string_ends_with(path, ".png.txt"):
+            with open(path, encoding="utf-8") as f:
+                rawFrames = [f.read()]
         processedFrames = [[] for _ in range(len(rawFrames))]
         return 1, rawFrames, processedFrames, progress, 0, 0, RuneAttribute_clear
     if state == 1:
@@ -1085,6 +1456,8 @@ def __load_splash_suspendable(state, args):
             i += 1
             offset = 0
             if i >= len(rawFrames):
+                if progress is not None:
+                    progress(1)
                 return SuspendableReturn, processedFrames
             rawFrame = rawFrames[i]
         endOffset = min(len(rawFrame), offset + 12259)

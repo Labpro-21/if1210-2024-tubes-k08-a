@@ -4,6 +4,7 @@ from utils.console import *
 from game.state import *
 from game.battle import *
 from game.inventory import *
+from game.potion import *
 from .battle import _battle_end_player_escaped, _battle_end_player_draw, _battle_end_player_won, _battle_action_attack, _battle_set
 from typing import NamedTuple, Optional, TypedDict, Callable
 
@@ -19,7 +20,7 @@ __MenuBattleHandlerCache = TypedDict("MenuBattleHandlerCache",
     args=tuple,
     promise=Promise
 )
-__MenuBattleCache = NamedTuple("MenuBattle", [
+__MenuBattleCache = NamedTuple("MenuBattleCache", [
     ("gameState", GameState), # expect not changed
     ("parent", View), # expect not changed
     ("turn", int), # expect not changed
@@ -91,6 +92,8 @@ def _battle_ui_handler_wild_monster(state, args):
             return "battle:forcefully_aborted"
         if selection == "Attack" and ((cache.turn == 1 and battle.monster1Id is None) or (cache.turn == 2 and battle.monster2Id is None)):
             return "battle:main#choose_monster", cache, "battle:start_menu#choose_monster_selection"
+        if selection == "Kabur" and ((cache.turn == 1 and battle.monster1Id is None) or (cache.turn == 2 and battle.monster2Id is None)):
+            return "battle:action#escape", cache, True
         return "battle:main#respond", cache, selection
     if state == "battle:start_menu#choose_monster_selection":
         cache, choose, *_ = args
@@ -302,6 +305,8 @@ def _battle_ui_handler_wild_monster(state, args):
     if state == "battle:main#choose_monster_selection":
         cache, intent, selection, modalView, *_ = args
         view_remove_child(cache.mainView, modalView)
+        if cache.abortSignal is not None and selection is cache.abortSignal:
+            return "battle:forcefully_aborted"
         if selection == None:
             return intent, cache, "Cancelled"
         return intent, cache, selection
@@ -330,11 +335,56 @@ def _battle_ui_handler_wild_monster(state, args):
     if state == "battle:action#use_potion":
         cache, *_ = args
         print, input, meta = cache.dialogConsole
+        gameState = cache.gameState
+        battle = cache.battle
+        selfMonsterId = battle.monster1Id if cache.turn == 1 else battle.monster2Id if cache.turn == 2 else None
+        userId = battle.player1Id if cache.turn == 1 else battle.player2Id if cache.turn == 2 else None
+        userItems = inventory_item_get_user_items(gameState, userId)
+        userItems = array_filter(userItems, lambda i, *_: i.quantity > 0)
+        if len(userItems) == 0:
+            meta(action="clear")
+            print("Kamu gaada potion yang bisa dipakai")
+            input("Lanjut", selectable=True)
+            selection = meta(action="select", signal=cache.abortSignal)
+            return SuspendableReturn, "battle:main#page2", selection
+        visual = gamestate_get_visual(gameState)
+        modalView = visual_show_simple_dialog(visual, "Pilih Potion", "",
+            x=pos_from_center(), y=pos_from_center(),
+            width=dim_from_factor(0.5), height=dim_from_factor(0.5),
+            parent=cache.mainView)
+        modalConsole = visual_with_mock(visual, modalView)
+        print, input, meta = modalConsole
         meta(action="clear")
-        print("Not implemented")
+        print("Pilih potion yang ingin digunakan")
+        for userItem in userItems:
+            potion = potion_get(gameState, userItem.referenceId)
+            input(f"{potion.name}", potion.description, id=userItem.id, selectable=True)
+        selection = meta(action="select", signal=cache.abortSignal)
+        # Purposefuly undefined behaviour: We expect the database to not change between selection.
+        return "battle:main#use_potion_selection", cache, selection, modalView
+    if state == "battle:main#use_potion_selection":
+        cache, selection, modalView, *_ = args
+        gameState = cache.gameState
+        view_remove_child(cache.mainView, modalView)
+        if cache.abortSignal is not None and selection is cache.abortSignal:
+            return "battle:forcefully_aborted"
+        if selection is None:
+            return SuspendableReturn, "battle:main#page2"
+        userItem = inventory_item_get(gameState, selection)
+        userItem = inventory_item_set(gameState, userItem.id, namedtuple_with(userItem,
+            quantity=userItem.quantity - 1
+        ))
+        potion = potion_get(gameState, userItem.referenceId)
+        battle = cache.battle
+        selfMonsterId = battle.monster1Id if cache.turn == 1 else battle.monster2Id if cache.turn == 2 else None
+        selfMonster = inventory_monster_get(gameState, selfMonsterId)
+        selfMonster = inventory_monster_use_potion(gameState, selfMonster, potion)
+        print, input, meta = cache.dialogConsole
+        meta(action="clear")
+        print(f"Kamu memakai potion '{potion.name}'")
         input("Lanjut", selectable=True)
         selection = meta(action="select", signal=cache.abortSignal)
-        return SuspendableReturn, "battle:main", selection
+        return SuspendableReturn, "battle:main#page2", selection
     if state == "battle:action#change_monster":
         cache, *_ = args
         return "battle:main#choose_monster", cache, "battle:action#change_monster_selection"

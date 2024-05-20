@@ -12,7 +12,7 @@ __MenuArenaHandlerCache = TypedDict("MenuArenaHandlerCache",
     args=tuple,
     promise=Promise
 )
-__MenuArenaCache = NamedTuple("MenuArena", [
+__MenuArenaCache = NamedTuple("MenuArenaCache", [
     ("gameState", GameState), # expect not changed
     ("parent", View), # expect not changed
     ("abortSignal", AbortSignal), # expect not changed

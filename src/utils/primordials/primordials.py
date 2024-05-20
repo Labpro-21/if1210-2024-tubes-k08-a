@@ -1,4 +1,4 @@
-from typing import Any, TypeVar, Callable, Union, NamedTuple, Type
+from typing import Any, TypeVar, Callable, Union, NamedTuple, Type, Optional
 
 __T = TypeVar("__T")
 __U = TypeVar("__U")
@@ -41,7 +41,7 @@ def _string_code_point_at(string: str, i: int) -> int:
     return ord(string[i])
 
 def _string_index_of(string: str, search: str, position: int = 0) -> int:
-    # return string.index(search)
+    return string.find(search, position) # Fasttrack
     stringLength = len(string)
     searchLength = len(search)
     if position < 0:
@@ -220,6 +220,7 @@ def _array_pop(array: list[__T]) -> __T:
     return array.pop()
 
 def _array_unshift(array: list[__T], *elements: __T) -> int:
+    elements = list(elements)
     _array_reverse(elements)
     for element in elements:
         array.insert(0, element)
@@ -252,6 +253,7 @@ def _array_splice(array: list[__T], start: int, deleteCount: int = None, *elemen
             break
         deleted.append(array.pop(start))
         deleteCount -= 1
+    elements = list(elements)
     _array_reverse(elements)
     for element in elements:
         array.insert(start, element)
@@ -279,6 +281,7 @@ def _array_some(array: list[__T], callback: Callable[[__T, int, list[__T]], bool
     return False
 
 def _array_index_of(array: list[__T], element: __T) -> int:
+    # return array.index(element) if element in array else -1 # Fasttrack
     for i in range(0, len(array)):
         if array[i] is not element:
             continue
@@ -293,6 +296,7 @@ def _array_last_index_of(array: list[__T], element: __T) -> int:
     return -1
 
 def _array_includes(array: list[__T], element: __T) -> bool:
+    # return element in array # Fasttrack
     return _array_index_of(array, element) >= 0
 
 def _array_find(array: list[__T], callback: Callable[[__T, int, list[__T]], bool]) -> __T:
@@ -341,9 +345,11 @@ def _array_map(array: list[__T], callback: Callable[[__T, int, list[__T]], __U])
         result.append(callback(array[i], i, array))
     return result
 
-def _array_flat(array: list[Any], depth: int = 1, result: list[Any] = []) -> list[Any]:
+def _array_flat(array: list[Any], depth: int = 1, result: list[Any] = None) -> list[Any]:
+    if result is None:
+        result = []
     for i in range(0, len(array)):
-        if not hasattr(array[i], "__len__"):
+        if type(array[i]) is not list:
             result.append(array[i])
             continue
         _array_flat(array[i], depth - 1, result)
@@ -353,6 +359,7 @@ def _array_flat_map(array: list[__T], callback: Callable[[__T, int, list[__T]], 
     return _array_flat(_array_map(array, callback))
 
 def _array_join(array: list[Any], separator: str = ",") -> str:
+    return separator.join(array) # Fasttrack
     result = ""
     arrayLength = len(array)
     for i in range(0, arrayLength):
@@ -374,6 +381,8 @@ def _array_reduce_right(array: list[__T], callback: Callable[[__U, __T, int, lis
     return accumulator
 
 def _array_reverse(array: list[__T]) -> None:
+    array.reverse() # Fasttrack
+    return
     arrayLength = len(array)
     for i in range(0, arrayLength // 2):
         temp = array[i]
@@ -410,6 +419,27 @@ def _array_with(array: list[__T], index: int, value: __T) -> list[__T]:
     array = _array_slice(array)
     array[index] = value
     return array
+
+# This function is not compliant with JS standard. 
+# isNaN(parseInt("23a")) == true
+# _parse_int("23a") is None
+__zero_ord = ord("0")
+def _parse_int(string: str) -> Optional[int]:
+    string = _string_trim(string)
+    if string == "" or string == "-":
+        return None
+    negate = False
+    result = 0
+    for i in range(len(string)):
+        character = string[i]
+        if i == 0 and character == "-":
+            negate = True
+            continue
+        digit = ord(character) - __zero_ord
+        if digit < 0 or digit > 9:
+            return None
+        result = result * 10 + digit
+    return -result if negate else result
 
 # Tuple/NamedTuple/Dict primordials
 
@@ -449,9 +479,14 @@ def _dict_clear(dictionary: __Dict):
     for key in list(dictionary.keys()):
         del dictionary[key]
 
-def _dict_set(dictionary: __Dict, to: __Dict):
-    for key, value in to.items():
-        dictionary[key] = value
+def _dict_set(dictionary: __Dict, to: Union[__Dict, list[tuple[str, Any]]]):
+    if type(to) is dict:
+        for key, value in to.items():
+            dictionary[key] = value
+    if type(to) is list:
+        for key, value in to:
+            dictionary[key] = value
+    return dictionary
 
 def _dict_with(dictionary: __Dict, **elements: Any) -> __Dict:
     result = dict()

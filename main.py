@@ -6,12 +6,19 @@ from game.database import *
 from game.menu import *
 from game.battle import *
 from os import path
+from sys import argv
 import traceback
 
 def main(state, args):
     if state is SuspendableInitial:
         currentDirectory = path.dirname(__file__)
-        savesDirectory = path.join(currentDirectory, "./data/saves/test-save/")
+        saveName = string_trim(array_join(argv, " "))
+        if string_starts_with(saveName, "\"") and string_ends_with(saveName, "\""):
+            saveName = string_slice(saveName, 1, -1)
+        saveName = string_trim(saveName)
+        if saveName == "":
+            saveName = "default-save"
+        savesDirectory = path.join(currentDirectory, path.join("./data/saves/", saveName))
         assetsDirectory = path.join(currentDirectory, "./data/assets/")
         gameState = gamestate_new(savesDirectory)
         visual = gamestate_get_visual(gameState)

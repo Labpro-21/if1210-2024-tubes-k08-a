@@ -21,6 +21,11 @@ def _menu_show_loading_initial(state, args):
 def _menu_show_loading_splash(state, args):
     if state is SuspendableInitial:
         gameState, splashes = args
+        if type(splashes) is dict:
+            newSplashes = []
+            for key, value in splashes.items():
+                array_push(newSplashes, (key, value))
+            splashes = newSplashes
         visual = gamestate_get_visual(gameState)
         loadingScreen = visual_show_splash(visual, "loading1.gif.txt")
         loadingScreen["play"](60, True)
@@ -78,7 +83,10 @@ def _menu_show_main_menu(state, args):
         gameState, console, user = args
         print, input, meta = console
         print(f"Halo Agent {user.username}. Kamu memanggil command HELP. Kamu memilih jalan yang benar, semoga kamu tidak sesat kemudian. Berikut adalah hal-hal yang dapat kamu lakukan sekarang:")
-        input("Play", "Memulai permainan", selectable=True)
+        input("Battle Wild Monster", "Memulai battle dengan monster liar", selectable=True)
+        input("Battle Arena", "Memulai battle dengan trainer", selectable=True)
+        input("Inventory", "Melihat isi inventory mu", selectable=True)
+        input("Shop", "Membuka shop untuk beli monster/item", selectable=True)
         input("Logout", "Keluar dari akun yang sedang digunakan", selectable=True)
         input("Exit", selectable=True)
         selection = meta(action="select")
@@ -87,8 +95,14 @@ def _menu_show_main_menu(state, args):
         gameState, console, selection = args
         if selection is None:
             return SuspendableInitial, gameState, console
-        if selection == "Play":
-            return SuspendableReturn, "agent:play"
+        if selection == "Battle Wild Monster":
+            return SuspendableReturn, "agent:battle_wild_monster"
+        if selection == "Battle Arena":
+            return SuspendableReturn, "agent:battle_arena"
+        if selection == "Inventory":
+            return SuspendableReturn, "agent:inventory"
+        if selection == "Shop":
+            return SuspendableReturn, "agent:shop"
         if selection == "Logout":
             return SuspendableReturn, "agent:logout"
         if selection == "Exit":
@@ -98,6 +112,7 @@ def _menu_show_main_menu(state, args):
         print, input, meta = console
         print("Selamat datang, Admin. Berikut adalah hal-hal yang dapat kamu lakukan:")
         input("Shop Management", "Melakukan manajemen pada SHOP sebagai tempat jual beli peralatan Agent", selectable=True)
+        input("Monster Management", "Melakukan manajemen pada MONSTER", selectable=True)
         input("Debug Test", "Kumpulan debug untuk testing program", selectable=True)
         input("Logout", "Keluar dari akun yang sedang digunakan", selectable=True)
         input("Exit", selectable=True)
@@ -109,6 +124,8 @@ def _menu_show_main_menu(state, args):
             return SuspendableInitial, gameState, console
         if selection == "Shop Management":
             return SuspendableReturn, "admin:shop_management"
+        if selection == "Monster Management":
+            return SuspendableReturn, "admin:monster_management"
         if selection == "Debug Test":
             return SuspendableReturn, "admin:debug_test"
         if selection == "Logout":

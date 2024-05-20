@@ -1,18 +1,13 @@
-from .coroutines import _Timer, _Pollable, _Looper, _looper_new, _looper_get_current, _ClosureType, _looper_closure, _looper_needs_tick, _looper_tick, _looper_tick_timers, _looper_tick_pollables, _looper_tick_immediates, _looper_tick_microtasks, _set_timeout, _set_interval, _clear_timeout, _clear_interval, _set_immediate, _next_tick, _PromiseState, _PromiseValue, _PromiseChainValue, Promise, _PromiseResolve, _PromiseReject, _promise_new, _as_promise, _promise_then, _promise_catch, _promise_finally, _promise_resolved, _promise_rejected, _promise_all, _promise_all_settled, _promise_any, _promise_race, _Suspendable, _SuspendableInitial, _SuspendableReturn, _SuspendableExhausted, _promise_from_suspendable, _promise_from_wait, _AbortSignal, _AbortController, _as_abortsignal, _abortsignal_is_aborted, _abortsignal_get_reason, _abortsignal_on_abort, _abortsignal_abort, _abortsignal_any, _abortsignal_timeout, _abortcontroller_new, _abortcontroller_get_signal, _abortcontroller_abort, _promise_from_abortsignal
+from .coroutines import _Timer, _Pollable, _Looper, _looper_new, _looper_get_current, _looper_closure, _looper_needs_tick, _looper_tick, _set_timeout, _set_interval, _clear_timeout, _clear_interval, _set_immediate, _next_tick, _PromiseState, _PromiseValue, _PromiseChainValue, Promise, _PromiseResolve, _PromiseReject, _promise_new, _as_promise, _promise_then, _promise_catch, _promise_finally, _promise_resolved, _promise_rejected, _promise_all, _promise_all_settled, _promise_any, _promise_race, _Suspendable, _SuspendableInitial, _SuspendableReturn, _SuspendableExhausted, _promise_from_suspendable, _promise_from_wait, _AbortSignal, _AbortController, _as_abortsignal, _abortsignal_is_aborted, _abortsignal_get_reason, _abortsignal_on_abort, _abortsignal_abort, _abortsignal_any, _abortsignal_timeout, _abortcontroller_new, _abortcontroller_get_signal, _abortcontroller_abort, _promise_from_abortsignal
 
 Timer = _Timer
 Pollable = _Pollable
 Looper = _Looper
 looper_new = _looper_new
 looper_get_current = _looper_get_current
-ClosureType = _ClosureType
 looper_closure = _looper_closure
 looper_needs_tick = _looper_needs_tick
 looper_tick = _looper_tick
-looper_tick_timers = _looper_tick_timers
-looper_tick_pollables = _looper_tick_pollables
-looper_tick_immediates = _looper_tick_immediates
-looper_tick_microtasks = _looper_tick_microtasks
 set_timeout = _set_timeout
 set_interval = _set_interval
 clear_timeout = _clear_timeout
