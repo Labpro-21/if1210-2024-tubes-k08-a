@@ -164,15 +164,11 @@ def _menu_show_shop_management(state, args):
         itemRows = array_slice(cache.shopItems, startIndex, endIndex)
         def getRowFor(i: int, shopItem: ShopSchemaType):
             resolvedItem = __resolve_shop_management_item(gameState, shopItem)
-            return [f"{startIndex + i + 1}", shopItem.referenceType, resolvedItem[0], f"{shopItem.stock}", f"{shopItem.cost}"]
+            return [f"{startIndex + i + 1}", shopItem.referenceType, resolvedItem[0], txtqty(shopItem.stock), txtcrcy(shopItem.cost)]
         itemRows = array_map(itemRows, lambda it, i, *_: getRowFor(i, it))
         if len(itemRows) < tableMaxShown:
-            array_push(itemRows, ["+++", "++++++", "++++++", "++++++", "++++++"])
-        tableView["updateRows"]([
-            ["▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲"],
-            *itemRows,
-            ["▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼"],
-        ])
+            array_push(itemRows, scrlad(5))
+        tableView["updateRows"]([scrlup(5), *itemRows, scrldw(5)])
         cache = namedtuple_with(cache,
             lastTableOffset=cache.tableOffset
         )
@@ -201,10 +197,10 @@ def _menu_show_shop_management(state, args):
             itemName, itemDescription, itemSprite = __resolve_shop_management_item(gameState, shopItem)
             itemPreviewAnimation = visual_show_splash(visual, itemSprite, parent=itemPreviewFrame)
             itemPreviewAnimation["play"](60, True)
-            description = f"ID: {inputPosition}\n"
-            description += f"Nama: {itemName}\n"
-            description += f"Harga: {shopItem.cost} "
-            description += f"Stok: {shopItem.stock}\n"
+            description = txtkv("ID: ", inputPosition) + "\n"
+            description += txtkv("Nama: ", itemName) + "\n"
+            description += txtkv("Harga: ", txtcrcy(shopItem.cost)) + " "
+            description += txtkv("Stok: ", txtqty(shopItem.stock)) + "\n"
             description += itemDescription
             itemDescriptionView["setContent"](description)
         cache = namedtuple_with(cache,
@@ -343,7 +339,13 @@ def _menu_show_shop_management(state, args):
                         array_push(descriptions, "ID monster tidak valid.")
                     else:
                         monster = monsters[parsedId]
-                        array_push(descriptions, f"Monster: {monster.name} Level: {monster.level} HP: {monster.healthPoints} ATK: {monster.attackPower} DEF: {monster.defensePower}")
+                        description = txtkv("Monster: ", monster.name) + " "
+                        description = txtkv("F: ", monster.family) + " "
+                        description += txtkv("L: ", monster.level) + " "
+                        description += txtkv("HP: ", monster.healthPoints) + " "
+                        description += txtkv("ATK: ", monster.attackPower) + " "
+                        description += txtkv("DEF: ", monster.defensePower) + " "
+                        array_push(descriptions, description)
                         existingShopItem = array_find(cache.shopItems, lambda i, *_: i.referenceType == "monster" and i.referenceId == parsedId)
                         if existingShopItem is not None:
                             array_push(descriptions, "Sudah terdapat item dengan id yang sama.")
@@ -354,7 +356,7 @@ def _menu_show_shop_management(state, args):
                     if parsedStock is None or parsedStock < 0:
                         array_push(descriptions, "Stok tidak valid.")
                     else:
-                        array_push(descriptions, f"Stok: {parsedStock}")
+                        array_push(descriptions, txtkv("Stok: ", parsedStock) + "")
                 if lastCost is None or lastCost == "":
                     array_push(emptyFields, "harga")
                 else:
@@ -362,7 +364,7 @@ def _menu_show_shop_management(state, args):
                     if parsedCost is None or parsedCost < 0:
                         array_push(descriptions, "Harga tidak valid.")
                     else:
-                        array_push(descriptions, f"Harga: {parsedCost}")
+                        array_push(descriptions, txtkv("Harga: ", parsedCost) + "")
                 emptyFieldsStr = None
                 if len(emptyFields) == 3:
                     emptyFieldsStr = f"{emptyFields[0]}, {emptyFields[1]}, dan {emptyFields[2]}."
@@ -404,7 +406,7 @@ def _menu_show_shop_management(state, args):
                         array_push(descriptions, "ID item tidak valid.")
                     else:
                         potion = potions[parsedId]
-                        array_push(descriptions, f"Item: {potion.name}")
+                        array_push(descriptions, txtkv("Item: ", potion.name) + "")
                         existingShopItem = array_find(cache.shopItems, lambda i, *_: i.referenceType == "item" and i.referenceId == parsedId)
                         if existingShopItem is not None:
                             array_push(descriptions, "Sudah terdapat item dengan id yang sama.")
@@ -415,7 +417,7 @@ def _menu_show_shop_management(state, args):
                     if parsedStock is None or parsedStock < 0:
                         array_push(descriptions, "Stok tidak valid.")
                     else:
-                        array_push(descriptions, f"Stok: {parsedStock}")
+                        array_push(descriptions, txtkv("Stok: ", parsedStock) + "")
                 if lastCost is None or lastCost == "":
                     array_push(emptyFields, "harga")
                 else:
@@ -423,7 +425,7 @@ def _menu_show_shop_management(state, args):
                     if parsedCost is None or parsedCost < 0:
                         array_push(descriptions, "Harga tidak valid.")
                     else:
-                        array_push(descriptions, f"Harga: {parsedCost}")
+                        array_push(descriptions, txtkv("Harga: ", parsedCost) + "")
                 emptyFieldsStr = None
                 if len(emptyFields) == 3:
                     emptyFieldsStr = f"{emptyFields[0]}, {emptyFields[1]}, dan {emptyFields[2]}."
@@ -498,10 +500,10 @@ def _menu_show_shop_management(state, args):
         shopItem = cache.shopItems[cache.inputPosition]
         itemName = __resolve_shop_management_item(gameState, shopItem)[0]
         meta(action="clear")
-        print(f"==== Edit '{itemName}' ====")
+        print(f"==== Edit {itemName} ====")
         input("Ganti Stok", selectable=True)
         input("Ganti Harga", selectable=True)
-        input("Hapus", selectable=True)
+        input(txtdngr("Hapus"), selectable=True)
         selection = meta(action="select")
         return "actionDialogChoose", cache, selection
     if state == "actionDialogChoose":
@@ -522,7 +524,7 @@ def _menu_show_shop_management(state, args):
                 if quantity is None or quantity < 0:
                     print("Jumlah yang dimasukkan tidak valid.")
                     return
-                print(f"Stok akan diganti menjadi {quantity}")
+                print(f"Stok akan diganti menjadi {txtqty(quantity)}")
             quantity = input("Jumlah: ", onChange=onChange)
             return "actionDialogChangeStock", cache, quantity
         if selection == "Ganti Harga":
@@ -533,20 +535,20 @@ def _menu_show_shop_management(state, args):
                 if v == "":
                     print("Masukkan harga yang ingin diganti.")
                     return
-                quantity = parse_int(v)
-                if quantity is None or quantity < 0:
+                cost = parse_int(v)
+                if cost is None or cost < 0:
                     print("Harga yang dimasukkan tidak valid.")
                     return
-                print(f"Harga akan diganti menjadi {quantity}")
-            quantity = input("Harga: ", onChange=onChange)
-            return "actionDialogChangeCost", cache, quantity
+                print(f"Harga akan diganti menjadi {txtcrcy(cost)}")
+            cost = input("Harga: ", onChange=onChange)
+            return "actionDialogChangeCost", cache, cost
         if selection == "Hapus":
             meta(action="clear")
             shopItem = cache.shopItems[cache.inputPosition]
             itemName = __resolve_shop_management_item(gameState, shopItem)[0]
             print(f"Yakin mau ngehapus item {itemName}?")
-            input("Hapus", selectable=True)
-            input("Batal", selectable=True)
+            input(txtdngr("Hapus"), selectable=True)
+            input(txtcncl("Batal"), selectable=True)
             selection = meta(action="select")
             return "actionDialogRemove", cache, selection
     if state == "actionDialogChangeStock":
@@ -628,9 +630,16 @@ def _menu_show_shop_management(state, args):
 def __resolve_shop_management_item(gameState: GameState, shopItem: ShopSchemaType):
     if shopItem.referenceType == "item":
         potion = potion_get(gameState, shopItem.referenceId)
-        description = f"Deskripsi: {potion.description}"
-        return (potion.name, description, potion.sprite)
+        name = ptncl(potion.name)
+        description = txtkv("Deskripsi: ", potion.description) + ""
+        return (name, description, potion.sprite)
     if shopItem.referenceType == "monster":
         monster = monster_get(gameState, shopItem.referenceId)
-        description = f"Family: {monster.family} Level: {monster.level}\nATK: {monster.attackPower}     DEF: {monster.defensePower}\nDeskripsi: {monster.description}"
-        return (monster.name, description, monster.spriteFront)
+        name = smnstr(monster.name)
+        description = txtkv("Family: ", monster.family) + " "
+        description += txtkv("Level: ", monster.level) + "\n"
+        description += txtkv("HP: ", monster.healthPoints) + "     "
+        description += txtkv("ATK: ", monster.attackPower) + "     "
+        description += txtkv("DEF: ", monster.defensePower) + "\n"
+        description += txtkv("Deskripsi: ", monster.description) + ""
+        return (name, description, monster.spriteFront)

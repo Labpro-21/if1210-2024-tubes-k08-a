@@ -263,40 +263,36 @@ def _menu_show_battle(state, args):
             return string
         if selfMonster is not None:
             selfStatView = cache.selfStatView
+            monsterType = monster_get(gameState, selfMonster.referenceId)
             hpCalculated = inventory_monster_get_calculated_health_points(gameState, selfMonster)
             atkCalculated = inventory_monster_get_calculated_attack_power(gameState, selfMonster)
             defCalculated = inventory_monster_get_calculated_defense_power(gameState, selfMonster)
             hpRatio = (hpCalculated - selfMonster.healthPoints) / selfMonster.healthPoints if selfMonster.healthPoints != 0 else 0
             atkRatio = (atkCalculated - selfMonster.attackPower) / selfMonster.attackPower if selfMonster.attackPower != 0 else 0
             defRatio = (defCalculated - selfMonster.defensePower) / selfMonster.defensePower if selfMonster.defensePower != 0 else 0
-            potionNames = array_map(selfMonster.activePotions, lambda p, i, *_: f"\t{i + 1}. {potion_get(gameState, p[2]).name}")
-            newLine = "\n" # OMFG. I hate python.
-            selfStatView["setContent"](formatString(f"""
-                Nama: {selfMonster.name}
-                Level: {monster_get(gameState, selfMonster.referenceId).level}
-                HP: {selfMonster.healthPoints:.1f}{f"{'+' if hpRatio >= 0 else ''}{hpRatio * 100:.2f}%" if hpRatio != 0 else ""}
-                Attack: {selfMonster.attackPower}{f"{'+' if atkRatio >= 0 else ''}{atkRatio * 100:.2f}%" if atkRatio != 0 else ""}
-                Defense: {selfMonster.defensePower}{f"{'+' if defRatio >= 0 else ''}{defRatio * 100:.2f}%" if defRatio != 0 else ""}
-                Potions: {"-" if len(potionNames) == 0 else f"{newLine}{array_join(potionNames, newLine)}"}
-            """))
+            # potionNames = array_map(selfMonster.activePotions, lambda p, i, *_: f"\t{i + 1}. {ptncl(potion_get(gameState, p[2]).name)}")
+            description = txtkv("Nama: ", selfMonster.name) + "\n"
+            description += txtkv("Level: ", monsterType.level) + "\n"
+            description += txtkv("HP: ", "") + "\n" + stbar(selfMonster.healthPoints, monsterType.healthPoints, f"{selfMonster.healthPoints:.2f}/{monsterType.healthPoints:.2f}{ratmod(hpRatio) if hpRatio != 0 else ''}", selfStatView) + "\n"
+            description += txtkv("Attack: ", f"{selfMonster.attackPower:.2f}" + (ratmod(atkRatio) if atkRatio != 0 else "")) + "\n"
+            description += txtkv("Defense: ", f"{selfMonster.defensePower:.2f}" + (ratmod(defRatio) if defRatio != 0 else "")) + "\n"
+            selfStatView["setContent"](description)
         if opponentMonster is not None:
             opponentStatView = cache.opponentStatView
+            monsterType = monster_get(gameState, opponentMonster.referenceId)
             hpCalculated = inventory_monster_get_calculated_health_points(gameState, opponentMonster)
             atkCalculated = inventory_monster_get_calculated_attack_power(gameState, opponentMonster)
             defCalculated = inventory_monster_get_calculated_defense_power(gameState, opponentMonster)
             hpRatio = (hpCalculated - opponentMonster.healthPoints) / opponentMonster.healthPoints if opponentMonster.healthPoints != 0 else 0
             atkRatio = (atkCalculated - opponentMonster.attackPower) / opponentMonster.attackPower if opponentMonster.attackPower != 0 else 0
             defRatio = (defCalculated - opponentMonster.defensePower) / opponentMonster.defensePower if opponentMonster.defensePower != 0 else 0
-            potionNames = array_map(opponentMonster.activePotions, lambda p, i, *_: f"\t{i + 1}. {potion_get(gameState, p[2]).name}")
-            newLine = "\n"
-            opponentStatView["setContent"](formatString(f"""
-                Nama: {opponentMonster.name}
-                Level: {monster_get(gameState, opponentMonster.referenceId).level}
-                HP: {opponentMonster.healthPoints:.1f}{f"{'+' if hpRatio >= 0 else ''}{hpRatio * 100:.2f}%" if hpRatio != 0 else ""}
-                Attack: {opponentMonster.attackPower}{f"{'+' if atkRatio >= 0 else ''}{atkRatio * 100:.2f}%" if atkRatio != 0 else ""}
-                Defense: {opponentMonster.defensePower}{f"{'+' if defRatio >= 0 else ''}{defRatio * 100:.2f}%" if defRatio != 0 else ""}
-                Potions: {"-" if len(potionNames) == 0 else f"{newLine}{array_join(potionNames, newLine)}"}
-            """))
+            # potionNames = array_map(opponentMonster.activePotions, lambda p, i, *_: f"\t{i + 1}. {ptncl(potion_get(gameState, p[2]).name)}")
+            description = txtkv("Nama: ", opponentMonster.name) + "\n"
+            description += txtkv("Level: ", monsterType.level) + "\n"
+            description += txtkv("HP: ", "") + "\n" + stbar(opponentMonster.healthPoints, monsterType.healthPoints, f"{opponentMonster.healthPoints:.2f}/{monsterType.healthPoints:.2f}{ratmod(hpRatio) if hpRatio != 0 else ''}", opponentStatView) + "\n"
+            description += txtkv("Attack: ", f"{opponentMonster.attackPower:.2f}" + (ratmod(atkRatio) if atkRatio != 0 else "")) + "\n"
+            description += txtkv("Defense: ", f"{opponentMonster.defensePower:.2f}" + (ratmod(defRatio) if defRatio != 0 else "")) + "\n"
+            opponentStatView["setContent"](description)
         cache = namedtuple_with(cache,
             battle=battle,
             selfMonster=selfMonster,

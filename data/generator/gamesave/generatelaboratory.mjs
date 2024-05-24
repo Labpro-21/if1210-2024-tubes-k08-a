@@ -23,9 +23,9 @@ const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 				continue;
 			}
 			let cost = 0;
-			cost += (currentMonster.healthPoints - lastMonster.healthPoints) * 2.2;
-			cost += (currentMonster.attackPower - lastMonster.attackPower) * 14.2;
-			cost += (currentMonster.defensePower - lastMonster.defensePower) * 11.7;
+			cost += (currentMonster.healthPoints - lastMonster.healthPoints) * 13.2;
+			cost += (currentMonster.attackPower - lastMonster.attackPower) * 40.2;
+			cost += (currentMonster.defensePower - lastMonster.defensePower) * 74.3;
 			cost = Math.round(cost / 75) * 75;
 			cost = Math.max(300, cost);
 			upgradeOptions.push({

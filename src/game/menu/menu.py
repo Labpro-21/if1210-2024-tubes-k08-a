@@ -82,11 +82,12 @@ def _menu_show_main_menu(state, args):
     if state == 4:
         gameState, console, user = args
         print, input, meta = console
-        print(f"Halo Agent {user.username}. Kamu memanggil command HELP. Kamu memilih jalan yang benar, semoga kamu tidak sesat kemudian. Berikut adalah hal-hal yang dapat kamu lakukan sekarang:")
+        print(f"Halo Agent {txtplnm(user.username)}. Kamu memanggil command HELP. Kamu memilih jalan yang benar, semoga kamu tidak sesat kemudian. Berikut adalah hal-hal yang dapat kamu lakukan sekarang:")
         input("Battle Wild Monster", "Memulai battle dengan monster liar", selectable=True)
         input("Battle Arena", "Memulai battle dengan trainer", selectable=True)
-        input("Inventory", "Melihat isi inventory mu", selectable=True)
         input("Shop", "Membuka shop untuk beli monster/item", selectable=True)
+        input("Laboratory", "Membuka laboratory untuk upgrade monster", selectable=True)
+        input("Inventory", "Melihat isi inventory mu", selectable=True)
         input("Save", "Menyimpan save game", selectable=True)
         input("Logout", "Keluar dari akun yang sedang digunakan", selectable=True)
         input("Exit", selectable=True)
@@ -100,10 +101,12 @@ def _menu_show_main_menu(state, args):
             return SuspendableReturn, "agent:battle_wild_monster"
         if selection == "Battle Arena":
             return SuspendableReturn, "agent:battle_arena"
-        if selection == "Inventory":
-            return SuspendableReturn, "agent:inventory"
         if selection == "Shop":
             return SuspendableReturn, "agent:shop"
+        if selection == "Laboratory":
+            return SuspendableReturn, "agent:laboratory"
+        if selection == "Inventory":
+            return SuspendableReturn, "agent:inventory"
         if selection == "Save":
             return SuspendableReturn, "agent:save"
         if selection == "Logout":
@@ -152,8 +155,8 @@ def _menu_show_exit(state, args):
         print, input, meta = console
         print("Yakin mau keluar?")
         input("Kembali", selectable=True)
-        input(f"{fg('e63131')}Keluar dan save{fg()}", selectable=True)
-        input(f"{fg('e63131')}Keluar{fg()}", selectable=True)
+        input(txtdngr("Keluar dan save"), selectable=True)
+        input(txtdngr("Keluar"), selectable=True)
         selection = meta(action="select")
         return 2, gameState, console, selection
     if state == 2:

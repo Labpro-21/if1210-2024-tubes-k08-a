@@ -57,10 +57,13 @@ def _battle_action_attack(gameState: GameState, battle: BattleSchemaType) -> tup
     selfMonster = inventory_monster_get(gameState, selfMonsterId)
     opponentMonster = inventory_monster_get(gameState, opponentMonsterId)
     selfMonsterAttack = inventory_monster_get_calculated_attack_power(gameState, selfMonster)
-    selfMonsterAttack = selfMonsterAttack * 1.5 + selfMonsterAttack * 0.3 * (gamestate_rand(gameState) * 2 - 1)
+    # THIS IS A HACK TO CONFORM THE RULES. Respect original attack/defense calculation
+    # selfMonsterAttack = selfMonsterAttack * 1.5 + selfMonsterAttack * 0.3 * (gamestate_rand(gameState) * 2 - 1)
+    selfMonsterAttack = selfMonsterAttack + selfMonsterAttack * 0.3 * (gamestate_rand(gameState) * 2 - 1)
     opponentMonsterDefense = inventory_monster_get_calculated_defense_power(gameState, opponentMonster)
-    opponentMonsterDefense = opponentMonsterDefense * 0.2 + opponentMonsterDefense * 0.2 * (gamestate_rand(gameState) * 2 - 1)
-    selfMonsterAttack = max(0, selfMonsterAttack - opponentMonsterDefense)
+    # opponentMonsterDefense = opponentMonsterDefense * 0.2 + opponentMonsterDefense * 0.2 * (gamestate_rand(gameState) * 2 - 1)
+    # selfMonsterAttack = max(0, selfMonsterAttack - opponentMonsterDefense)
+    selfMonsterAttack = selfMonsterAttack * (1 - opponentMonsterDefense / 100)
     opponentMonsterHealth = max(0, opponentMonster.healthPoints - selfMonsterAttack)
     inventory_monster_set(gameState, opponentMonsterId, namedtuple_with(opponentMonster, healthPoints=opponentMonsterHealth))
     # THIS IS A HACK TO CONFORM THE RULES. Count the damage given.

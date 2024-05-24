@@ -14,8 +14,8 @@ def _menu_show_login(state, args):
         meta(action="clear")
         print("=========== LOGIN ===========")
         print("Silahkan masukkan username dan paswordmu yang telah terdaftar.")
-        username = input(f"{fbg()}Username: {fg('e6dee6')}{bg('734118')}", f"{fbg()}Username hanya boleh berisi alfabet, angka, underscore, dan strip!")
-        password = input(f"{fbg()}Password: {fg('e6dee6')}{bg('734118')}", f"{fbg()}Tekan {fg('e63131')}CTRL+A{fg()} untuk melihat password", renderer=lambda v, *_: array_map(v, lambda r, *_: Rune("•", r.attribute)))
+        username = input(f"Username: ", f"Username hanya boleh berisi alfabet, angka, underscore, dan strip!")
+        password = input(f"Password: ", f"Tekan {txthint('CTRL+A')} untuk melihat password", renderer=lambda v, *_: array_map(v, lambda r, *_: Rune("•", r.attribute)))
         return 2, gameState, console, username, password
     if state == 2:
         gameState, console, username, password = args
@@ -46,8 +46,8 @@ def _menu_show_register(state, args):
         meta(action="clear")
         print("=========== REGISTER ===========")
         print("Silahkan masukkan username dan password untuk register akun.")
-        username = input(f"{fbg()}Username: {fg('e6dee6')}{bg('734118')}", f"{fbg()}Username hanya boleh berisi alfabet, angka, underscore, dan strip!")
-        password = input(f"{fbg()}Password: {fg('e6dee6')}{bg('734118')}", f"{fbg()}Tekan {fg('e63131')}CTRL+A{fg()} untuk melihat password", renderer=lambda v, *_: array_map(v, lambda r, *_: Rune("•", r.attribute)))
+        username = input(f"Username: ", f"Username hanya boleh berisi alfabet, angka, underscore, dan strip!")
+        password = input(f"Password: ", f"Tekan {txthint('CTRL+A')} untuk melihat password", renderer=lambda v, *_: array_map(v, lambda r, *_: Rune("•", r.attribute)))
         return 2, gameState, console, username, password
     if state == 2:
         gameState, console, username, password = args

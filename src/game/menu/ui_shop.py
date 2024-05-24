@@ -69,7 +69,7 @@ def _menu_show_shop(state, args):
             x=pos_from_center(), y=pos_from_center(),
             width=dim_from_factor(0.8), height=dim_from_absolute(3 + 2 * (2 + tableMaxShown) + 2 + 2 + 2 + 2),
             parent=cache.parent)
-        mainView["setContent"]("  OWCA: 0")
+        mainView["setContent"](txtkv("OWCA: ", "0") + "  ")
         
         tableView = visual_show_table(visual, 
             [
@@ -167,13 +167,9 @@ def _menu_show_shop(state, args):
         itemRows = array_slice(cache.shopItems, startIndex, endIndex)
         def getRowFor(i: int, shopItem: ShopSchemaType):
             resolvedItem = __resolve_shop_item(gameState, shopItem)
-            return [f"{startIndex + i + 1}", shopItem.referenceType, resolvedItem[0], f"{shopItem.stock}", f"{shopItem.cost}"]
+            return [f"{startIndex + i + 1}", shopItem.referenceType, resolvedItem[0], txtqty(shopItem.stock), txtcrcy(shopItem.cost)]
         itemRows = array_map(itemRows, lambda it, i, *_: getRowFor(i, it))
-        tableView["updateRows"]([
-            ["▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲"],
-            *itemRows,
-            ["▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼"],
-        ])
+        tableView["updateRows"]([scrlup(5), *itemRows, scrldw(5)])
         cache = namedtuple_with(cache,
             lastTableOffset=cache.tableOffset
         )
@@ -183,7 +179,7 @@ def _menu_show_shop(state, args):
         gameState = cache.gameState
         mainView = cache.mainView
         userMoney = user_get_current(gameState).money
-        mainView["setContent"](f"  OWCA: {userMoney}")
+        mainView["setContent"](txtkv("OWCA Coin: ", txtcrcy(userMoney)) + "")
         if cache.inputPosition == cache.lastInputPosition:
             return "waitInput", cache
         visual = gamestate_get_visual(gameState)
@@ -205,10 +201,10 @@ def _menu_show_shop(state, args):
             itemName, itemDescription, itemSprite = __resolve_shop_item(gameState, shopItem)
             itemPreviewAnimation = visual_show_splash(visual, itemSprite, parent=itemPreviewFrame)
             itemPreviewAnimation["play"](60, True)
-            description = f"ID: {inputPosition}\n"
-            description += f"Nama: {itemName}\n"
-            description += f"Harga: {shopItem.cost} "
-            description += f"Stok: {shopItem.stock}\n"
+            description = txtkv("ID: ", inputPosition) + "\n"
+            description += txtkv("Nama: ", itemName) + "\n"
+            description += txtkv("Harga: ", txtcrcy(shopItem.cost)) + " "
+            description += txtkv("Stok: ", txtqty(shopItem.stock)) + "\n"
             description += itemDescription
             itemDescriptionView["setContent"](description)
         cache = namedtuple_with(cache,
@@ -291,10 +287,10 @@ def _menu_show_shop(state, args):
             inputPosition=inputPosition
         )
         if action == "enter":
-            return "buyDialog", cache
+            return "buyDialog", cache, False
         return "updateItemView", cache
     if state == "buyDialog":
-        cache, *_ = args
+        cache, cancelled, *_ = args
         gameState = cache.gameState
         mainView = cache.mainView
         tableView = cache.tableView
@@ -307,7 +303,7 @@ def _menu_show_shop(state, args):
         shopItem = cache.shopItems[cache.inputPosition]
         itemName = __resolve_shop_item(gameState, shopItem)[0]
         meta(action="clear")
-        print(f"==== Beli '{itemName}' @ {shopItem.cost} ====")
+        print(f"==== Beli {itemName} @ {txtcrcy(shopItem.cost)} ====")
         if shopItem.stock <= 0:
             print("Waduh! Kayaknya stoknya lagi kosong. Mampir kapan-kapan lagi ya.")
             input("Lanjut", selectable=True)
@@ -322,6 +318,8 @@ def _menu_show_shop(state, args):
                 selection = meta(action="select")
                 return "buyDialogConfirmChoose", cache, None, "Batal", selection
             # THIS IS A HACK TO CONFORM THE RULES. You can only have one for each monster types. Don't bother to show quantity dialog.
+            if cancelled:
+                return "buyDialogConfirmChoose", cache, None, "Batal"
             return "buyDialogConfirm", cache, "1"
         print("Masukkan jumlah yang ingin dibeli.")
         def onChange(v):
@@ -334,12 +332,12 @@ def _menu_show_shop(state, args):
                 print("Jumlah yang dimasukkan tidak valid.")
                 return
             subtotal = quantity * shopItem.cost
-            print(f"Total harga: {quantity} * {shopItem.cost} = {subtotal}")
+            print(f"Total harga: {txtqty(quantity)} * {txtcrcy(shopItem.cost)} = {txtcrcy(subtotal)}")
             if userMoney < subtotal:
-                print(f"Uangmu tidak cukup.", end=" ")
+                print(f"OWCA Coinmu tidak cukup.", end=" ")
             if quantity > shopItem.stock:
                 print(f"Stok di shop tidak cukup.", end=" ")
-        quantity = input("Jumlah: ", f"Uangmu: {userMoney}", onChange=onChange)
+        quantity = input("Jumlah: ", txtkv("OWCA Coun: ", txtcrcy(userMoney)) + "", onChange=onChange)
         return "buyDialogConfirm", cache, quantity
     if state == "buyDialogConfirm":
         cache, quantity, *_ = args
@@ -347,7 +345,7 @@ def _menu_show_shop(state, args):
             return "buyDialogConfirmChoose", cache, None, "Batal"
         quantity = parse_int(quantity)
         if quantity is None or quantity <= 0:
-            return "buyDialog", cache
+            return "buyDialog", cache, False
         gameState = cache.gameState
         shopItem = cache.shopItems[cache.inputPosition]
         itemName = __resolve_shop_item(gameState, shopItem)[0]
@@ -357,18 +355,18 @@ def _menu_show_shop(state, args):
         subtotal = quantity * shopItem.cost
         if userMoney < subtotal or quantity > shopItem.stock:
             if userMoney < subtotal:
-                print(f"Uangmu tidak cukup.", end=" ")
+                print(f"OWCA Coinmu tidak cukup.", end=" ")
             if quantity > shopItem.stock:
                 print(f"Stok di shop tidak cukup.", end=" ")
             input("Lanjut", selectable=True)
             selection = meta(action="select")
             return "buyDialogConfirmChoose", cache, None, "Batal", selection
         meta("keySpeed", 120)
-        print(f"OWCA mu saat ini terdapat {userMoney}. ", end="")
-        print(f"Kamu akan membeli '{itemName}' dengan harga satuan {shopItem.cost} sebanyak {quantity} dengan subtotal {subtotal}. ", end="")
-        print(f"Di akhir transaksi OWCA mu akan tersisa {userMoney - subtotal}.")
-        input("Konfirmasi", selectable=True)
-        input("Batal", selectable=True)
+        print(f"OWCA Coinmu saat ini terdapat {txtcrcy(userMoney)}. ", end="")
+        print(f"Kamu akan membeli {itemName} dengan harga satuan {txtcrcy(shopItem.cost)} sebanyak {txtqty(quantity)} dengan subtotal {txtcrcy(subtotal)}. ", end="")
+        print(f"Di akhir transaksi OWCA Coinmu akan tersisa {txtcrcy(userMoney - subtotal)}.")
+        input(txtprcd("Konfirmasi"), selectable=True)
+        input(txtcncl("Batal"), selectable=True)
         selection = meta(action="select")
         return "buyDialogConfirmChoose", cache, quantity, selection
     if state == "buyDialogConfirmChoose":
@@ -376,7 +374,7 @@ def _menu_show_shop(state, args):
         print, input, meta = cache.buyDialogConsole
         meta("keySpeed", -1)
         if selection is None:
-            return "buyDialog", cache
+            return "buyDialog", cache, True
         gameState = cache.gameState
         mainView = cache.mainView
         tableView = cache.tableView
@@ -446,9 +444,16 @@ def _menu_show_shop(state, args):
 def __resolve_shop_item(gameState: GameState, shopItem: ShopSchemaType):
     if shopItem.referenceType == "item":
         potion = potion_get(gameState, shopItem.referenceId)
-        description = f"Deskripsi: {potion.description}"
-        return (potion.name, description, potion.sprite)
+        name = ptncl(potion.name)
+        description = txtkv("Deskripsi: ", potion.description) + ""
+        return (name, description, potion.sprite)
     if shopItem.referenceType == "monster":
         monster = monster_get(gameState, shopItem.referenceId)
-        description = f"Family: {monster.family} Level: {monster.level}\nATK: {monster.attackPower}     DEF: {monster.defensePower}\nDeskripsi: {monster.description}"
-        return (monster.name, description, monster.spriteFront)
+        name = smnstr(monster.name)
+        description = txtkv("Family: ", monster.family) + " "
+        description += txtkv("Level: ", monster.level) + "\n"
+        description += txtkv("HP: ", monster.healthPoints) + "     "
+        description += txtkv("ATK: ", monster.attackPower) + "     "
+        description += txtkv("DEF: ", monster.defensePower) + "\n"
+        description += txtkv("Deskripsi: ", monster.description) + ""
+        return (name, description, monster.spriteFront)

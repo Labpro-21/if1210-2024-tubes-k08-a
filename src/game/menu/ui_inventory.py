@@ -70,7 +70,7 @@ def _menu_show_inventory(state, args):
             width=dim_from_factor(0.8), height=dim_from_absolute(3 + 2 * (2 + tableMaxShown) + 2 + 2 + 2 + 2),
             horizontalAlignment="Right",
             parent=cache.parent)
-        mainView["setContent"]("OWCA: 0  ")
+        mainView["setContent"](txtkv("OWCA: ", "0") + "  ")
 
         entryView = visual_show_simple_dialog(visual, None, "",
             x=pos_from_absolute(0), y=pos_from_absolute(0),
@@ -167,14 +167,10 @@ def _menu_show_inventory(state, args):
         itemRows = array_slice(cache.inventoryEntries, startIndex, endIndex)
         def getRowFor(i: int, inventoryEntry: __InventoryEntry):
             resolvedEntry = __resolve_inventory_entry(gameState, inventoryEntry)
-            entryType = "monster" if __is_inventory_entries_monster(inventoryEntry) else "item"
+            entryType = smnstr("Monster") if __is_inventory_entries_monster(inventoryEntry) else ptncl("Item")
             return [f"{startIndex + i + 1}", entryType, resolvedEntry[0], resolvedEntry[2]]
         itemRows = array_map(itemRows, lambda it, i, *_: getRowFor(i, it))
-        tableView["updateRows"]([
-            ["▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲"],
-            *itemRows,
-            ["▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼"],
-        ])
+        tableView["updateRows"]([scrlup(4), *itemRows, scrldw(4)])
         cache = namedtuple_with(cache,
             lastTableOffset=cache.tableOffset
         )
@@ -184,7 +180,7 @@ def _menu_show_inventory(state, args):
         gameState = cache.gameState
         mainView = cache.mainView
         userMoney = user_get_current(gameState).money
-        mainView["setContent"](f"OWCA: {userMoney}  ")
+        mainView["setContent"](txtkv("OWCA Coin: ", txtcrcy(userMoney)) + "  ")
         if cache.inputPosition == cache.lastInputPosition:
             return "waitInput", cache
         visual = gamestate_get_visual(gameState)
@@ -206,10 +202,10 @@ def _menu_show_inventory(state, args):
             entryName, entryDescription, entryQuantity, entrySprite = __resolve_inventory_entry(gameState, inventoryEntry)
             entryPreviewAnimation = visual_show_splash(visual, entrySprite, parent=entryPreviewFrame)
             entryPreviewAnimation["play"](60, True)
-            description = f"ID: {inputPosition}\n"
-            description += f"Nama: {entryName}\n"
+            description = txtkv("ID: ", inputPosition) + "\n"
+            description += txtkv("Nama: ", entryName) + "\n"
             if entryQuantity != "-":
-                description += f"Jumlah: {entryQuantity}\n"
+                description += txtkv("Jumlah: ", entryQuantity) + "\n"
             description += entryDescription
             entryDescriptionView["setContent"](description)
         cache = namedtuple_with(cache,
@@ -307,7 +303,7 @@ def _menu_show_inventory(state, args):
     #     inventoryEntry = cache.inventoryEntries[cache.inputPosition]
     #     itemName = __resolve_inventory_entry(gameState, inventoryEntry)[0]
     #     meta(action="clear")
-    #     print(f"==== Beli '{itemName}' @ {inventoryEntry.cost} ====")
+    #     print(f"==== Beli {itemName} @ {inventoryEntry.cost} ====")
     #     print("Masukkan jumlah yang ingin dibeli.")
     #     def onChange(v):
     #         meta(action="clearPrint")
@@ -319,10 +315,10 @@ def _menu_show_inventory(state, args):
     #             print("Jumlah yang dimasukkan tidak valid.")
     #             return
     #         subtotal = quantity * inventoryEntry.cost
-    #         print(f"Total harga: {quantity} * {inventoryEntry.cost} = {subtotal}")
+    #         print(f"Total harga: {txtqty(quantity)} * {inventoryEntry.cost} = {txtcrcy(subtotal)}")
     #         if userMoney < subtotal:
-    #             print(f"Uangmu tidak cukup.")
-    #     quantity = input("Jumlah: ", f"Uangmu: {userMoney}", onChange=onChange)
+    #             print(f"OWCA Coinmu tidak cukup.")
+    #     quantity = input("Jumlah: ", txtkv("OWCA Coin: ", txtcrcy(userMoney)) + "", onChange=onChange)
     #     return "actionDialogConfirm", cache, quantity
     # if state == "actionDialogConfirm":
     #     cache, quantity, *_ = args
@@ -339,15 +335,15 @@ def _menu_show_inventory(state, args):
     #     userMoney = user_get_current(gameState).money
     #     subtotal = quantity * inventoryEntry.cost
     #     if userMoney < subtotal:
-    #         print(f"Uangmu tidak cukup. ", end="")
+    #         print(f"OWCA Coinmu tidak cukup. ", end="")
     #         input("Lanjut", selectable=True)
     #         selection = meta(action="select")
     #         return "actionDialogConfirmChoose", cache, None, "Batal", selection
     #     meta("keySpeed", 120)
-    #     print(f"OWCA mu saat ini terdapat {userMoney}. ", end="")
-    #     print(f"Kamu akan membeli '{itemName}' dengan harga satuan {inventoryEntry.cost} sebanyak {quantity} dengan subtotal {subtotal}. ", end="")
-    #     print(f"Di akhir transaksi OWCA mu akan tersisa {userMoney - subtotal}.")
-    #     input("Konfirmasi", selectable=True)
+    #     print(f"OWCA Coinmu saat ini terdapat {txtcrcy(userMoney)}. ", end="")
+    #     print(f"Kamu akan membeli {itemName} dengan harga satuan {inventoryEntry.cost} sebanyak {txtqty(quantity)} dengan subtotal {txtcrcy(subtotal)}. ", end="")
+    #     print(f"Di akhir transaksi OWCA Coinmu akan tersisa {txtcrcy(userMoney - subtotal)}.")
+    #     input(txtprcd("Konfirmasi"), selectable=True)
     #     input("Batal", selectable=True)
     #     selection = meta(action="select")
     #     return "actionDialogConfirmChoose", cache, quantity, selection
@@ -409,10 +405,15 @@ def __resolve_inventory_entry(gameState: GameState, inventoryEntry: ShopSchemaTy
     if __is_inventory_entries_monster(inventoryEntry):
         monster: InventoryMonsterSchemaType = inventoryEntry
         monsterType = monster_get(gameState, monster.referenceId)
-        description = f"Family: {monsterType.family} Level: {monsterType.level}\nATK: {monster.attackPower}     DEF: {monster.defensePower}\nDeskripsi: {monsterType.description}"
+        description = txtkv("Family: ", monsterType.family) + " "
+        description += txtkv("Level: ", monsterType.level) + "\n"
+        description += txtkv("HP: ", monster.healthPoints) + "     "
+        description += txtkv("ATK: ", monster.attackPower) + "     "
+        description += txtkv("DEF: ", monster.defensePower) + "\n"
+        description += txtkv("Deskripsi: ", monsterType.description) + ""
         return (monster.name, description, "-", monsterType.spriteFront)
     if __is_inventory_entries_item(inventoryEntry):
         potion: InventoryItemSchemaType = inventoryEntry
         potionType = potion_get(gameState, potion.referenceId)
-        description = f"Deskripsi: {potionType.description}"
-        return (potionType.name, description, f"{potion.quantity}", potionType.sprite)
+        description = txtkv("Deskripsi: ", potionType.description) + ""
+        return (potionType.name, description, txtqty(potion.quantity), potionType.sprite)

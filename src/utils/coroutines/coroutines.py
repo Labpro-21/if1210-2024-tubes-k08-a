@@ -115,7 +115,7 @@ def __looper_wait_next_timers(looper: _Looper) -> None:
     now = __now()
     timers = looper["timers"]
     sleepTime = array_reduce(timers, lambda c, t, *_: min(c, t["anchor"] + t["timeout"] - now), 150)
-    if sleepTime <= 10:
+    if sleepTime <= 5:
         return
     time.sleep(sleepTime / 1000)
 

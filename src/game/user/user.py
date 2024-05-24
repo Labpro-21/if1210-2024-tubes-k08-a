@@ -87,7 +87,7 @@ def _user_register(state, args) -> None:
         # mengecek apakah username sudah ada di database   
             for i in range (len(user_entries)):
                 if new_username == user_entries[i].username:
-                    print(f"Username {new_username} sudah terpakai, silahkan gunakan username lain!")
+                    print(f"Username {txtplnm(new_username)} sudah terpakai, silahkan gunakan username lain!")
                     return SuspendableReturn, None
 
         # input password
@@ -99,8 +99,12 @@ def _user_register(state, args) -> None:
         availableMonsters = array_map(rand_uniq_int_array(0, len(availableMonsters), min(5, len(availableMonsters))), lambda i, *_: availableMonsters[i])
         print("Silakan pilih salah satu monster sebagai monster awalmu.")
         for availableMonster in availableMonsters:
-            description = f"L: {availableMonster.level} HP: {availableMonster.healthPoints} ATK: {availableMonster.attackPower} DEF: {availableMonster.defensePower}"
-            input(f"{availableMonster.name}", description, id=availableMonster.id, selectable=True)
+            description = txtkv("F: ", availableMonster.family) + " "
+            description += txtkv("L: ", availableMonster.level) + " "
+            description += txtkv("HP: ", f"{availableMonster.healthPoints:.1f}") + " " # TODO: These properties do not include potion effects
+            description += txtkv("ATK: ", f"{availableMonster.attackPower:.1f}") + " "
+            description += txtkv("DEF: ", f"{availableMonster.defensePower:.1f}") + ""
+            input(smnstr(availableMonster.name), description, id=availableMonster.id, selectable=True)
         meta(action="pushFlags")
         meta("selectableAllowEscape", False)
         selection = meta(action="select")
@@ -117,7 +121,7 @@ def _user_register(state, args) -> None:
             username=new_username,
             password=new_password,
             role="agent",
-            money=0
+            money=500
         ))
         
         monsterId = selection
@@ -137,7 +141,7 @@ def _user_register(state, args) -> None:
         gamestate_set_user_id(gameState, user.id)
 
         meta(action="clear")
-        print(f"Selamat datang Agent {new_username}. Mari kita mengalahkan Dr. Asep Spakbor dengan {inventoryMonster.name}!")
+        print(f"Selamat datang Agent {txtplnm(new_username)}. Mari kita mengalahkan Dr. Asep Spakbor dengan {smnstr(inventoryMonster.name)}!")
         input("Lanjut", selectable=True)
         selection = meta(action="select")
         
@@ -182,7 +186,7 @@ def _user_login(gameState: GameState, username: str, password: str) -> None:
         return
     else: # benar
         print(f'''
-Selamat datang, Agent {username}!
+Selamat datang, Agent {txtplnm(username)}!
               ''')
         newly_logged_in_id = user_entries[user_index].id
         gamestate_set_user_id(gameState, newly_logged_in_id)

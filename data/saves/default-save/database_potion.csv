@@ -1,9 +1,9 @@
-0;Temporary Healing Potion;Gives your monster extra health for temporarily;HealingDefinite;5;1;60000;1;potions/default_potion.png.txt;
-1;Permanent Healing Potion;Gives your monster permanent extra health;HealingIndefinite;3;1;1;1;potions/default_potion.png.txt;
-2;Jack's Mix Potion;Gives +30% resilience and strength +20% at the same time!;ResilienceDefinite;0;1.3;30000;0;potions/default_potion.png.txt;3
-3;Jack's Mix Potion-1;--internal use only--;StrengthDefinite;0;1.2;30000;0;potions/default_potion.png.txt;
-4;Devil's Weakness;Gives your monster weakness by -10%;StrengthDefinite;0;0.9;15000;1;potions/default_potion.png.txt;
-5;OG Healing Potion;Restores Health;HealingIndefinite;0;0;1;1;potions/default_potion.png.txt;
-6;OG Strength Potion;Increases ATK Power;StrengthIndefinite;0;0;1;1;potions/default_potion.png.txt;
-7;OG Resilience Potion;Increases DEF Power;ResilienceIndefinite;0;0;1;1;potions/default_potion.png.txt;
-8;Monster Ball;Bola untuk menangkap monster liar!;Monster Bollocks;0;0;1;1;potions/pokebollocks.png.txt;
+0;OG Healing Potion;Restores Health;HealingIndefinite;0.0;0.0;1.0;1;potions/default_potion.png.txt;
+1;OG Strength Potion;Increases ATK Power;StrengthIndefinite;0.0;0.0;1.0;1;potions/default_potion.png.txt;
+2;OG Resilience Potion;Increases DEF Power;ResilienceIndefinite;0.0;0.0;1.0;1;potions/default_potion.png.txt;
+3;Monster Ball;Bola untuk menangkap monster liar!;Monster Bollocks;0.0;0.0;1.0;1;potions/pokebollocks.png.txt;
+4;Temporary Healing Potion;Gives your monster extra health for temporarily;HealingDefinite;5.0;1.0;60000.0;1;potions/default_potion.png.txt;
+5;Permanent Healing Potion;Gives your monster permanent extra health;HealingIndefinite;3.0;1.0;1.0;1;potions/default_potion.png.txt;
+6;Jack's Mix Potion;Gives +30% resilience and strength +20% at the same time!;ResilienceDefinite;0.0;1.3;30000.0;0;potions/default_potion.png.txt;3
+7;Jack's Mix Potion-1;--internal use only--;StrengthDefinite;0.0;1.2;30000.0;0;potions/default_potion.png.txt;
+8;Devil's Weakness;Gives your monster weakness by -10%;StrengthDefinite;0.0;0.9;15000.0;1;potions/default_potion.png.txt;
