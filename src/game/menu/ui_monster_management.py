@@ -166,15 +166,11 @@ def _menu_show_monster_management(state, args):
         endIndex = startIndex + tableMaxShown
         itemRows = array_slice(cache.monsterTypes, startIndex, endIndex)
         def getRowFor(i: int, monsterType: MonsterSchemaType):
-            return [f"{startIndex + i + 1}", monsterType.family, monsterType.name, f"{monsterType.level}", f"{monsterType.healthPoints}", f"{monsterType.attackPower}", f"{monsterType.defensePower}"]
+            return [f"{startIndex + i + 1}", monsterType.family, smnstr(monsterType.name), f"{monsterType.level}", f"{monsterType.healthPoints}", f"{monsterType.attackPower}", f"{monsterType.defensePower}"]
         itemRows = array_map(itemRows, lambda it, i, *_: getRowFor(i, it))
         if len(itemRows) < tableMaxShown:
-            array_push(itemRows, ["+++", "++++++", "++++++", "++++++", "++++++", "++++++", "++++++"])
-        tableView["updateRows"]([
-            ["▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲"],
-            *itemRows,
-            ["▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼"],
-        ])
+            array_push(itemRows, scrlad(7))
+        tableView["updateRows"]([scrlup(7), *itemRows, scrldw(7)])
         cache = namedtuple_with(cache,
             lastTableOffset=cache.tableOffset
         )
@@ -202,13 +198,13 @@ def _menu_show_monster_management(state, args):
             monsterType = cache.monsterTypes[inputPosition]
             itemPreviewAnimation = visual_show_splash(visual, monsterType.spriteFront, parent=itemPreviewFrame)
             itemPreviewAnimation["play"](60, True)
-            description = f"ID: {inputPosition}\n"
-            description += f"Family: {monsterType.family}\n"
-            description += f"Nama: {monsterType.name}\n"
-            description += f"Level: {monsterType.level}\n"
-            description += f"HP: {monsterType.healthPoints}\n"
-            description += f"ATK: {monsterType.attackPower}\n"
-            description += f"DEF: {monsterType.defensePower}\n"
+            description = txtkv("ID: ", inputPosition) + "\n"
+            description += txtkv("Family: ", monsterType.family) + "\n"
+            description += txtkv("Nama: ", smnstr(monsterType.name)) + "\n"
+            description += txtkv("Level: ", monsterType.level) + "\n"
+            description += txtkv("HP: ", monsterType.healthPoints) + "\n"
+            description += txtkv("ATK: ", monsterType.attackPower) + "\n"
+            description += txtkv("DEF: ", monsterType.defensePower) + "\n"
             itemDescriptionView["setContent"](description)
         cache = namedtuple_with(cache,
             lastInputPosition=inputPosition,
@@ -337,7 +333,7 @@ def _menu_show_monster_management(state, args):
             if lastFamily is None or lastFamily == "":
                 array_push(emptyFields, "family")
             else:
-                array_push(descriptions, f"Family: {lastFamily}")
+                array_push(descriptions, txtkv("Family: ", lastFamily) + "")
             if lastName is None or lastName == "":
                 array_push(emptyFields, "nama")
             else:
@@ -345,7 +341,7 @@ def _menu_show_monster_management(state, args):
                 if array_some(cache.monsterTypes, lambda m, *_: m.name == lastName):
                     array_push(descriptions, "Nama sudah terdaftar!")
                 else:
-                    array_push(descriptions, f"Nama: {lastName}")
+                    array_push(descriptions, txtkv("Nama: ", lastName) + "")
             parsedLevel = None
             if level is None or level == "":
                 array_push(emptyFields, "level")
@@ -354,7 +350,7 @@ def _menu_show_monster_management(state, args):
                 if parsedLevel is None or parsedLevel < 0:
                     array_push(descriptions, "Level tidak valid.")
                 else:
-                    array_push(descriptions, f"Level: {parsedLevel}")
+                    array_push(descriptions, txtkv("Level: ", parsedLevel) + "")
             if lastFamily is not None and parsedLevel is not None:
                 if array_some(cache.monsterTypes, lambda m, *_: m.family == lastFamily and m.level == parsedLevel):
                     array_push(descriptions, f"Monster dengan family dan level ini telah ada!")
@@ -365,7 +361,7 @@ def _menu_show_monster_management(state, args):
                 if parsedHealthPoints is None or parsedHealthPoints < 0:
                     array_push(descriptions, "Health points tidak valid.")
                 else:
-                    array_push(descriptions, f"HP: {parsedHealthPoints}")
+                    array_push(descriptions, txtkv("HP: ", parsedHealthPoints) + "")
             if attackPower is None or attackPower == "":
                 array_push(emptyFields, "attack power")
             else:
@@ -373,7 +369,7 @@ def _menu_show_monster_management(state, args):
                 if parsedAttackPower is None or parsedAttackPower < 0:
                     array_push(descriptions, "Attack power tidak valid.")
                 else:
-                    array_push(descriptions, f"ATK: {parsedAttackPower}")
+                    array_push(descriptions, txtkv("ATK: ", parsedAttackPower) + "")
             if defensePower is None or defensePower == "":
                 array_push(emptyFields, "defense power")
             else:
@@ -382,7 +378,7 @@ def _menu_show_monster_management(state, args):
                 if parsedDefensePower is None or parsedDefensePower < 0 or parsedDefensePower > 50:
                     array_push(descriptions, "Defense power tidak valid.")
                 else:
-                    array_push(descriptions, f"DEF: {parsedDefensePower}")
+                    array_push(descriptions, txtkv("DEF: ", parsedDefensePower) + "")
             emptyFieldsStr = None
             if len(emptyFields) >= 3:
                 emptyFieldsStr = f"{array_join(array_slice(emptyFields, 0, len(emptyFields) - 1), ', ')}, dan {emptyFields[len(emptyFields) - 1]}."
@@ -455,7 +451,7 @@ def _menu_show_monster_management(state, args):
         print, input, meta = cache.actionDialogConsole
         monsterType = cache.monsterTypes[cache.inputPosition]
         meta(action="clear")
-        print(f"==== Edit '{monsterType.name}' ====")
+        print(f"==== Edit {smnstr(monsterType.name)} ====")
         input("Ganti Nama", selectable=True)
         input("Ganti HP", selectable=True)
         input("Ganti ATK", selectable=True)
@@ -481,7 +477,7 @@ def _menu_show_monster_management(state, args):
                 if array_some(cache.monsterTypes, lambda m, *_: m.name == v):
                     print("Nama sudah terdaftar!")
                     return
-                print(f"Nama akan diganti menjadi {v}")
+                print(f"Nama akan diganti menjadi {smnstr(v)}")
             monsterName = input("Nama: ", onChange=onChange)
             return "actionDialogChangeName", cache, monsterName
         if selection == "Ganti HP":
@@ -524,7 +520,7 @@ def _menu_show_monster_management(state, args):
                     return
                 defensePower = parse_int(v)
                 # THIS IS A HACK TO CONFORM THE RULES. Defense power range is from 0 to 50
-                if defensePower is None or defensePower < 0 or defensePower > 0:
+                if defensePower is None or defensePower < 0 or defensePower > 50:
                     print("Defense power yang dimasukkan tidak valid.")
                     return
                 print(f"Defense power akan diganti menjadi {defensePower}")

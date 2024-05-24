@@ -12,7 +12,7 @@ def _menu_show_save(state, args):
         meta(action="clear")
         print("=========== SAVE ===========")
         print("Silahkan masukkan nama save.")
-        saveName = input(f"{fbg()}Save: {fg('e6dee6')}{bg('734118')}", f"{fbg()}Kosongkan untuk menggunakan folder save saat ini.")
+        saveName = input(f"Save: ", f"Kosongkan untuk menggunakan folder save saat ini.")
         return 2, gameState, console, currentDirectory, saveName
     if state == 2:
         gameState, console, currentDirectory, saveName = args

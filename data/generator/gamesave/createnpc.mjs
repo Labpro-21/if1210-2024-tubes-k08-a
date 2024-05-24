@@ -26,7 +26,7 @@ const randString = () => {
 			name: trainerName,
 			password: randString() + randString() + randString(),
 			role: "npc",
-			money: 150 + Math.round(Math.random() * 400)
+			money: 300 + Math.round(Math.random() * 400)
 		}
 		trainerUsers.push(trainerUser);
 	}
@@ -36,7 +36,7 @@ const randString = () => {
 	let j = 0;
 	for(let i = 0; i < trainerUsers.length; i++) {
 		const trainerUser = trainerUsers[i];
-		const monsterCount = 1 + Math.floor(Math.random() * 5);
+		const monsterCount = 3 + Math.floor(Math.random() * 5);
 		for(let k = 0; k < monsterCount; k++) {
 			const monsterType = monsters[Math.floor(Math.random() * monsters.length)];
 			const trainerMonster = {
@@ -45,7 +45,7 @@ const randString = () => {
 				referenceId: monsterType.id,
 				name: monsterType.name,
 				experiencePoints: 30 + Math.round(Math.random() * 600),
-				healthPoints: monsterType.healthPoints + Math.floor((Math.random() * 2 - 1) * 0.3 * monsterType.healthPoints),
+				healthPoints: monsterType.healthPoints,
 				attackPower: monsterType.attackPower + Math.floor((Math.random() * 2 - 1) * 0.3 * monsterType.attackPower),
 				defensePower: monsterType.defensePower + Math.floor((Math.random() * 2 - 1) * 0.3 * monsterType.defensePower),
 				activePotions: []

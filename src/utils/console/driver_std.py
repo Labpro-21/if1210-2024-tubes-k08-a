@@ -117,7 +117,8 @@ _DriverStd = TypedDict("DriverStd",
     dirtyLines=list[int],
     
     keyListeners=list[Callable[[_KeyEvent], Any]],
-    lastCursor=tuple[int, int],
+    lastCursorX=int,
+    lastCursorY=int,
     lastAttribute=_RuneAttribute,
 )
 
@@ -129,7 +130,8 @@ def _driverstd_new() -> _DriverStd:
             _driver_draw=_driverstd_draw
         ),
         keyListeners=[],
-        lastCursor=None,
+        lastCursorX=None,
+        lastCursorY=None,
         lastAttribute=None,
     )
     _driver_set_size(result, __get_terminal_size())
@@ -185,41 +187,64 @@ def _driverstd_draw(driverstd: _DriverStd) -> None:
         else:
             lastDirtyLines = [inf for _ in range(1000)]
             driverstd["__lastDirtyLines"] = lastDirtyLines
+    hasDirty = False
     for y in range(size.h):
         dirtyLine = dirtyLines[y]
         if isinf(dirtyLine):
             if drawDirtyLines and dirtyLine != lastDirtyLines[y]:
-                overlapped = len(str(dirtyLine))
+                hasDirty = True
+                overlapped = len(str(lastDirtyLines[y]))
                 lastDirtyLines[y] = dirtyLine
                 _driverstd_move_cursor(driverstd, y)
                 for x in range(overlapped):
                     rune = contents[y * size.w + x]
                     _driverstd_set_current_attribute(driverstd, rune.attribute)
-                    sys.stdout.write(rune.character)
+                    _driverstd_print_string(driverstd, rune.character)
             continue
         dirtyLines[y] = inf
+        hasDirty = True
         _driverstd_move_cursor(driverstd, y, dirtyLine)
         for x in range(dirtyLine, size.w):
             rune = contents[y * size.w + x]
             _driverstd_set_current_attribute(driverstd, rune.attribute)
-            sys.stdout.write(rune.character)
-        if drawDirtyLines and dirtyLine != lastDirtyLines[y]:
+            _driverstd_print_string(driverstd, rune.character)
+        if drawDirtyLines and (dirtyLine != lastDirtyLines[y] or dirtyLine < len(str(dirtyLine))):
+            overlapped = len(str(lastDirtyLines[y])) if not isinf(lastDirtyLines[y]) else 0
+            currentOverlapped = len(str(dirtyLine))
             lastDirtyLines[y] = dirtyLine
             _driverstd_move_cursor(driverstd, y)
             _driverstd_set_current_attribute(driverstd, _RuneAttribute_debug)
-            sys.stdout.write(f"{dirtyLine}")
-    _driverstd_move_cursor(driverstd, size.h - 1)
-    _driverstd_set_current_attribute(driverstd, _RuneAttribute_clear)
-    sys.stdout.flush()
+            _driverstd_print_string(driverstd, f"{dirtyLine}")
+            for x in range(currentOverlapped, overlapped):
+                rune = contents[y * size.w + x]
+                _driverstd_set_current_attribute(driverstd, rune.attribute)
+                _driverstd_print_string(driverstd, rune.character)
+    if hasDirty:
+        _driverstd_move_cursor(driverstd, size.h - 1, size.w - 1)
+        _driverstd_set_current_attribute(driverstd, _RuneAttribute_clear)
+        _driverstd_flush(driverstd)
 
-def _driverstd_move_cursor(driverstd: _DriverStd, column: int, row: int = 0) -> None:
-    column = max(0, min(driverstd["size"].h - 1, column))
-    row = max(0, min(driverstd["size"].w - 1, row))
-    if driverstd["lastCursor"] == (column, row):
+def _driverstd_move_cursor(driverstd: _DriverStd, row: int, column: int = 0) -> None:
+    size = driverstd["size"]
+    row = max(0, min(size.h - 1, row))
+    column = max(0, min(size.w - 1, column))
+    if driverstd["lastCursorY"] == row and driverstd["lastCursorX"] == column:
         return
-    command = f"\x1b[{column + 1};{row + 1}H"
+    command = f"\x1b[{row + 1};{column + 1}H"
     sys.stdout.write(command)
-    driverstd["lastCursor"] = (column, row)
+    driverstd["lastCursorY"] = row
+    driverstd["lastCursorX"] = column
+
+def _driverstd_print_string(driverstd: _DriverStd, string: str) -> None:
+    size = driverstd["size"]
+    sys.stdout.write(string)
+    advanceY = len(string) // size.w
+    advanceX = len(string) % size.w
+    driverstd["lastCursorY"] += advanceY
+    driverstd["lastCursorX"] += advanceX
+
+def _driverstd_flush(driverstd: _DriverStd) -> None:
+    sys.stdout.flush()
 
 def _driverstd_set_current_attribute(driverstd: _DriverStd, attribute: _RuneAttribute) -> str:
     lastAttribute = driverstd["lastAttribute"]
@@ -255,7 +280,7 @@ def driverstd_reset_console():
     driverstd = _driverstd_new()
     _driverstd_set_current_attribute(driverstd, _RuneAttribute_clear)
     _driverstd_move_cursor(driverstd, driverstd["size"].h - 1)
-    sys.stdout.flush()
+    _driverstd_flush(driverstd)
 
 def __get_terminal_size() -> Size:
     value = os.get_terminal_size()

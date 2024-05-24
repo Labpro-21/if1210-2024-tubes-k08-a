@@ -77,7 +77,7 @@ def _menu_show_laboratory(state, args):
             width=dim_from_factor(0.8), #height=dim_from_absolute(3 + 2 * (2 + tableMaxShown) + 2 + 24),
             height=dim_from_factor(0.8),
             parent=cache.parent)
-        mainView["setContent"]("  OWCA: 0")
+        mainView["setContent"]("  " + txtkv("OWCA: ", "0"))
 
         tableView = visual_show_table(visual, 
             [
@@ -200,17 +200,13 @@ def _menu_show_laboratory(state, args):
             hpRatio = (afterMonster.healthPoints - beforeMonster.healthPoints) / beforeMonster.healthPoints if beforeMonster.healthPoints != 0 else 0
             atkRatio = (afterMonster.attackPower - beforeMonster.attackPower) / beforeMonster.attackPower if beforeMonster.attackPower != 0 else 0
             defRatio = (afterMonster.defensePower - beforeMonster.defensePower) / beforeMonster.defensePower if beforeMonster.defensePower != 0 else 0
-            rowName = f"{beforeMonster.name} ({beforeMonster.level}) --> ({afterMonster.level}) {afterMonster.name}"
-            rowHp = f"{beforeMonster.healthPoints} {'+' if hpRatio >= 0 else ''}{hpRatio * 100:.2f}%"
-            rowAtk = f"{beforeMonster.attackPower} {'+' if atkRatio >= 0 else ''}{atkRatio * 100:.2f}%"
-            rowDef = f"{beforeMonster.defensePower} {'+' if defRatio >= 0 else ''}{defRatio * 100:.2f}%"
-            return [f"{startIndex + i + 1}", rowName, rowHp, rowAtk, rowDef, f"{upgradeOption.cost}"]
+            rowName = f"{smnstr(beforeMonster.name)} ({beforeMonster.level}) --> ({afterMonster.level}) {smnstr(afterMonster.name)}"
+            rowHp = f"{beforeMonster.healthPoints} {ratmod(hpRatio)}"
+            rowAtk = f"{beforeMonster.attackPower} {ratmod(atkRatio)}"
+            rowDef = f"{beforeMonster.defensePower} {ratmod(defRatio)}"
+            return [f"{startIndex + i + 1}", rowName, rowHp, rowAtk, rowDef, txtcrcy(upgradeOption.cost)]
         upgradeRows = array_map(upgradeRows, lambda u, i, *_: getRowFor(i, u))
-        tableView["updateRows"]([
-            ["▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲"],
-            *upgradeRows,
-            ["▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼"],
-        ])
+        tableView["updateRows"]([scrlup(6), *upgradeRows, scrldw(6)])
         cache = namedtuple_with(cache,
             lastTableOffset=cache.tableOffset
         )
@@ -220,7 +216,7 @@ def _menu_show_laboratory(state, args):
         gameState = cache.gameState
         mainView = cache.mainView
         userMoney = user_get_current(gameState).money
-        mainView["setContent"](f"  OWCA: {userMoney}")
+        mainView["setContent"](txtkv("OWCA Coin: ", txtcrcy(userMoney)) + "")
         if cache.inputPosition == cache.lastInputPosition:
             return "waitInput", cache
         visual = gamestate_get_visual(gameState)
@@ -250,10 +246,22 @@ def _menu_show_laboratory(state, args):
             beforeMonster, afterMonster = __resolve_laboratory_upgrade(gameState, upgradeOption)
             beforePreviewAnimation = visual_show_splash(visual, beforeMonster.spriteFront, parent=beforePreviewFrame)
             beforePreviewAnimation["play"](60, True)
-            beforeDescriptionView["setContent"](f"Nama: {beforeMonster.name} ({beforeMonster.level})\nHP: {beforeMonster.healthPoints}\nATK: {beforeMonster.attackPower}\nDEF: {beforeMonster.defensePower}")
+            description = txtkv("Nama: ", beforeMonster.family) + " "
+            description += txtkv("Level: ", beforeMonster.level) + "\n"
+            description += txtkv("HP: ", beforeMonster.healthPoints) + "     "
+            description += txtkv("ATK: ", beforeMonster.attackPower) + "     "
+            description += txtkv("DEF: ", beforeMonster.defensePower) + "\n"
+            description += txtkv("Deskripsi: ", beforeMonster.description) + ""
+            beforeDescriptionView["setContent"](description)
             afterPreviewAnimation = visual_show_splash(visual, afterMonster.spriteFront, parent=afterPreviewFrame)
             afterPreviewAnimation["play"](60, True)
-            afterDescriptionView["setContent"](f"Nama: {afterMonster.name} ({afterMonster.level})\nHP: {afterMonster.healthPoints}\nATK: {afterMonster.attackPower}\nDEF: {afterMonster.defensePower}")
+            description = txtkv("Nama: ", afterMonster.family) + " "
+            description += txtkv("Level: ", afterMonster.level) + "\n"
+            description += txtkv("HP: ", afterMonster.healthPoints) + "     "
+            description += txtkv("ATK: ", afterMonster.attackPower) + "     "
+            description += txtkv("DEF: ", afterMonster.defensePower) + "\n"
+            description += txtkv("Deskripsi: ", afterMonster.description) + ""
+            afterDescriptionView["setContent"](description)
         cache = namedtuple_with(cache,
             lastInputPosition=inputPosition,
             beforePreviewAnimation=beforePreviewAnimation,
@@ -350,9 +358,9 @@ def _menu_show_laboratory(state, args):
         beforeMonster, afterMonster = __resolve_laboratory_upgrade(gameState, upgradeOption)
         print, input, meta = cache.upgradeDialogConsole
         meta(action="clear")
-        print(f"==== Upgrade {beforeMonster.name} ({beforeMonster.level}) --> ({afterMonster.level}) {afterMonster.name} ====")
+        print(f"==== Upgrade {smnstr(beforeMonster.name)} ({beforeMonster.level}) --> ({afterMonster.level}) {smnstr(afterMonster.name)} ====")
         if userMoney < upgradeOption.cost:
-            print("Uangmu tidak cukup untuk melakukan upgrade ini.")
+            print("OWCA Coinmu tidak cukup untuk melakukan upgrade ini.")
             input("Lanjut", selectable=True)
             selection = meta(action="select")
             return "upgradeDialogConfirmChoose", cache, None, "Batal", selection
@@ -367,11 +375,11 @@ def _menu_show_laboratory(state, args):
             hpRatio = (targetHp - userMonster.healthPoints) / userMonster.healthPoints if userMonster.healthPoints != 0 else 0
             atkRatio = (targetAtk - userMonster.attackPower) / userMonster.attackPower if userMonster.attackPower != 0 else 0
             defRatio = (targetDef - userMonster.defensePower) / userMonster.defensePower if userMonster.defensePower != 0 else 0
-            rowHp = f"{userMonster.healthPoints} {'+' if hpRatio >= 0 else ''}{hpRatio * 100:.2f}%"
-            rowAtk = f"{userMonster.attackPower} {'+' if atkRatio >= 0 else ''}{atkRatio * 100:.2f}%"
-            rowDef = f"{userMonster.defensePower} {'+' if defRatio >= 0 else ''}{defRatio * 100:.2f}%"
+            rowHp = f"{userMonster.healthPoints} {ratmod(hpRatio)}"
+            rowAtk = f"{userMonster.attackPower} {ratmod(atkRatio)}"
+            rowDef = f"{userMonster.defensePower} {ratmod(defRatio)}"
             description = f"HP: {rowHp} ATK: {rowAtk} DEF: {rowDef}"
-            input(f"{userMonster.name}", description, id=userMonster.id, selectable=True)
+            input(smnstr(userMonster.name), description, id=userMonster.id, selectable=True)
         selection = meta(action="select")
         return "upgradeDialogConfirm", cache, selection
     if state == "upgradeDialogConfirm":
@@ -386,7 +394,7 @@ def _menu_show_laboratory(state, args):
         print, input, meta = cache.upgradeDialogConsole
         meta(action="clear")
         if userMoney < upgradeOption.cost:
-            print(f"Uangmu tidak cukup. ", end="")
+            print(f"OWCA Coinmu tidak cukup. ", end="")
             input("Lanjut", selectable=True)
             selection = meta(action="select")
             return "upgradeDialogConfirmChoose", cache, None, "Batal", selection
@@ -394,11 +402,11 @@ def _menu_show_laboratory(state, args):
         targetAtk = max(userMonster.attackPower, afterMonster.attackPower)
         targetDef = max(userMonster.defensePower, afterMonster.defensePower)
         meta("keySpeed", 120)
-        print(f"OWCA mu saat ini terdapat {userMoney}. ", end="")
-        print(f"Kamu akan mengupgrade '{userMonster.name}' dari level {beforeMonster.level} ke level {afterMonster.level} dengan harga {upgradeOption.cost}. ", end="")
-        print(f"Di akhir transaksi OWCA mu akan tersisa {userMoney - upgradeOption.cost}. Dan '{userMonster.name}' akan memiliki HP: {targetHp} ATK: {targetAtk} DEF: {targetDef}")
-        input("Konfirmasi", selectable=True)
-        input("Batal", selectable=True)
+        print(f"OWCA Coinmu saat ini terdapat {txtcrcy(userMoney)}. ", end="")
+        print(f"Kamu akan mengupgrade {smnstr(userMonster.name)} dari level {beforeMonster.level} ke level {afterMonster.level} dengan harga {txtcrcy(upgradeOption.cost)}. ", end="")
+        print(f"Di akhir transaksi OWCA Coinmu akan tersisa {txtcrcy(userMoney - upgradeOption.cost)}. Dan {smnstr(userMonster.name)} akan memiliki {txtkv('HP: ', targetHp)} {txtkv('ATK: ', targetAtk)} {txtkv('DEF: ', targetDef)}")
+        input(txtprcd("Konfirmasi"), selectable=True)
+        input(txtcncl("Batal"), selectable=True)
         selection = meta(action="select")
         return "upgradeDialogConfirmChoose", cache, monsterId, selection
     if state == "upgradeDialogConfirmChoose":

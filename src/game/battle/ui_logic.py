@@ -327,11 +327,11 @@ def _battle_ui_handler_wild_monster(state, args):
         print("Pilih monstermu yang ingin digunakan")
         for userMonster in userMonsters:
             monsterType = monster_get(gameState, userMonster.referenceId)
-            description = f"F: {monsterType.family}, "
-            description += f"L: {monsterType.level}, "
-            description += f"HP: {userMonster.healthPoints:.1f}, " # TODO: These properties do not include potion effects
-            description += f"ATK: {userMonster.attackPower:.1f}, "
-            description += f"DEF: {userMonster.defensePower:.1f}"
+            description = txtkv("F: ", monsterType.family) + " "
+            description += txtkv("L: ", monsterType.level) + " "
+            description += txtkv("HP: ", f"{userMonster.healthPoints:.1f}") + " " # TODO: These properties do not include potion effects
+            description += txtkv("ATK: ", f"{userMonster.attackPower:.1f}") + " "
+            description += txtkv("DEF: ", f"{userMonster.defensePower:.1f}") + ""
             input(f"{userMonster.name}", description, id=userMonster.id, selectable=True)
         selection = meta(action="select", signal=cache.abortSignal)
         # Purposefuly undefined behaviour: We expect the database to not change between selection.
@@ -366,7 +366,7 @@ def _battle_ui_handler_wild_monster(state, args):
         meta(action="clear")
         userId = battle.player1Id if cache.turn == 1 else battle.player2Id if cache.turn == 2 else None
         userMonsterBall = inventory_item_get_user_items(gameState, userId)
-        userMonsterBall = array_find(userMonsterBall, lambda i, *_: i.referenceId == 8 and i.quantity > 0) # ID 8 is for monster ball
+        userMonsterBall = array_find(userMonsterBall, lambda i, *_: i.referenceId == 3 and i.quantity > 0) # ID 3 is for monster ball
         if userMonsterBall is None:
             print("Kamu ga ada monster ball yang bisa dipake!")
             input("Lanjut", selectable=True)
@@ -392,7 +392,7 @@ def _battle_ui_handler_wild_monster(state, args):
         if not captureSuccess:
             print("BAM! Kamu mengeluarkan monster ball!")
             print("Tapi kayaknya monsternya ga ketangkep deh:(")
-            print(f"Sisa monster ball: {userMonsterBall.quantity}")
+            print(f"Sisa monster ball: {txtqty(userMonsterBall.quantity)}")
             input("Lanjut", selectable=True)
             selection = meta(action="select", signal=cache.abortSignal)
             return SuspendableReturn, "battle:main", selection
@@ -411,7 +411,7 @@ def _battle_ui_handler_wild_monster(state, args):
         meta(action="clear")
         print("BAM! Kamu mengeluarkan monster ball!")
         print("Yesss. Monsternya berhasil ketangkep!")
-        print(f"Sisa monster ball: {quantity}")
+        print(f"Sisa monster ball: {txtqty(quantity)}")
         input("Lanjut", selectable=True)
         selection = meta(action="select", signal=cache.abortSignal)
         return SuspendableReturn, "battle:end", selection
@@ -443,7 +443,7 @@ def _battle_ui_handler_wild_monster(state, args):
         print("Pilih potion yang ingin digunakan")
         for userItem in userMonsterBall:
             potion = potion_get(gameState, userItem.referenceId)
-            description = f"Stok: {userItem.quantity} | {potion.description}"
+            description = txtkv("Stok: ", txtqty(userItem.quantity)) + f" | {potion.description}"
             input(f"{potion.name}", description, id=userItem.id, selectable=True)
         selection = meta(action="select", signal=cache.abortSignal)
         # Purposefuly undefined behaviour: We expect the database to not change between selection.
@@ -476,7 +476,7 @@ def _battle_ui_handler_wild_monster(state, args):
         # My original plan was to change the battle schema type to be append-only history logs.
         # But it will take more time. This is the most economically-advantage time.
         __battleMonsterUsedPotionId = f"__battle-{battle.id}-monster{selfMonster.id}-used-potion-{potion.id}"
-        if __battleMonsterUsedPotionId in gameState and gameState[__battleMonsterUsedPotionId] > 0 and potion.id != 5:
+        if __battleMonsterUsedPotionId in gameState and gameState[__battleMonsterUsedPotionId] > 0:
             print("Aduh!! Monstermu gamau sama potion ini:(")
             input("Lanjut", selectable=True)
             selection = meta(action="select", signal=cache.abortSignal)
@@ -486,30 +486,30 @@ def _battle_ui_handler_wild_monster(state, args):
         else:
             gameState[__battleMonsterUsedPotionId] = 1
         # THIS IS A HACK TO CONFORM THE RULES. The way the rule's potion is designed conflicts with my potion design.
-        if potion.id == 5:
+        if potion.id == 0:
             monsterType = monster_get(gameState, selfMonster.referenceId)
             newHealthPoints = selfMonster.healthPoints + 0.25 * monsterType.healthPoints
             newHealthPoints = min(monsterType.healthPoints, newHealthPoints)
             selfMonster = inventory_monster_set(gameState, selfMonster.id, namedtuple_with(selfMonster,
                 healthPoints=newHealthPoints
             ))
-        elif potion.id == 6:
+        elif potion.id == 1:
             selfMonster = inventory_monster_set(gameState, selfMonster.id, namedtuple_with(selfMonster,
                 attackPower=selfMonster.attackPower * 1.05
             ))
-        elif potion.id == 7:
+        elif potion.id == 2:
             selfMonster = inventory_monster_set(gameState, selfMonster.id, namedtuple_with(selfMonster,
                 defensePower=selfMonster.defensePower * 1.05
             ))
         else:
             selfMonster = inventory_monster_use_potion(gameState, selfMonster, potion)
-        print(f"Kamu memakai potion '{potion.name}'")
+        print(f"Kamu memakai potion {ptncl(potion.name)}")
         # THIS IS A HACK TO CONFORM THE RULES. Print the potion affect message
-        if potion.id == 5:
+        if potion.id == 0:
             print("Setelah meminum ramuan ini, luka-luka yang ada di dalam tubuh Pikachow sembuh dengan cepat. Dalam sekejap, Pikachow terlihat kembali prima dan siap melanjutkan pertempuran.")
-        elif potion.id == 6:
+        elif potion.id == 1:
             print("Setelah meminum ramuan ini, aura kekuatan terlihat mengelilingi Pikachow dan gerakannya menjadi lebih cepat dan mematikan.")
-        elif potion.id == 7:
+        elif potion.id == 2:
             print("Setelah meminum ramuan ini, muncul sebuah energi pelindung di sekitar Pikachow yang membuatnya terlihat semakin tangguh dan sulit dilukai.")
         input("Lanjut", selectable=True)
         selection = meta(action="select", signal=cache.abortSignal)

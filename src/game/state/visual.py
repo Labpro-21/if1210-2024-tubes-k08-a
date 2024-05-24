@@ -1439,6 +1439,67 @@ def _fbg(r: Union[int, str] = None, g: int = None, b: int = None) -> str:
         r = int(string_slice(r, 0, 2), 16)
     return f'§x{string_replace_all(base64_encode(chr(r) + chr(g) + chr(b)), "=", "")}|'
 
+def _smnstr(name: str) -> str: # Coloring for self monster
+    return f"{_fg('39ACF6')}{name}{_fg()}"
+def _omnstr(name: str) -> str: # Coloring for opponent monster
+    return f"{_fg('E3111A')}{name}{_fg()}"
+def _ptncl(potion: str) -> str:
+    return f"{_fg('DEB462')}{potion}{_fg()}"
+def _stbar(value: float, max: float, desc: str = None, bounds: Union[View, int] = 10) -> str: # Coloring for stats bar
+    if desc is None:
+        desc = f"{value:.2f}/{max:.2f}"
+    if type(bounds) is dict:
+        view = bounds
+        bounds = view["frame"].w # This is illegal access
+        bounds -= thickness_get_horizontal(adornment_get_thickness(view_get_margin(view)))
+        bounds -= thickness_get_horizontal(adornment_get_thickness(view_get_border(view)))
+        bounds -= thickness_get_horizontal(adornment_get_thickness(view_get_padding(view)))
+    ratio = value / max
+    ratioWidth = int(bounds * ratio)
+    result = _bg("52A441") if ratio > 0.5 else _bg("FCD216") + _fg(0, 0, 0) if ratio > 0.2 else _bg("BD0820")
+    result += array_join([desc[i] if i < len(desc) else " " for i in range(0, min(ratioWidth, bounds))], "")
+    result += _bg("C5B4B4") + _fg(0, 0, 0)
+    result += array_join([desc[i] if i < len(desc) else " " for i in range(ratioWidth, bounds)], "")
+    result += _fbg()
+    return result
+def _ratmod(ratio: float) -> str:
+    return f"{_fg('52A441') + '+' if ratio >= 0 else _fg('BD0820')}{ratio * 100:.2f}%{_fg()}"
+def _txtk(text: str) -> str:
+    return f"{_fg('C5B4B4')}{text}{_fg()}"
+def _txtv(text: str) -> str:
+    return f"{_fg()}{text}"
+def _txtkv(key: str, value: str) -> str:
+    return f"{_fg('C5B4B4')}{key}{_fg()}{value}"
+def _txtqty(qty: int) -> str:
+    return f"{_fg('CD94C5')}{qty}{_fg()}"
+def _txtcrcy(currency: int) -> str:
+    return f"{_fg('A3E2BB')}{currency}{_fg()}"
+def _txtplnm(name: int) -> str:
+    return f"{_fg('E69C00')}{name}{_fg()}"
+def _txtdngr(danger: str) -> str:
+    return f"{_fg('E63131')}{danger}{_fg()}"
+def _txtprcd(proceed: str) -> str:
+    return f"{_fg('52A441')}{proceed}{_fg()}"
+def _txtcncl(cancel: str) -> str:
+    return f"{_fg('FCD216')}{cancel}{_fg()}"
+def _txthint(hint: str) -> str:
+    return f"{_fg('E63131')}{hint}{_fg()}"
+def _scrlup(arr: int = None) -> Union[str, list[str]]:
+    result = _fg("C5B4B4") + string_repeat("▲", 10) + _fg()
+    if arr is None:
+        return result
+    return [result for _ in range(arr)]
+def _scrldw(arr: int = None) -> Union[str, list[str]]:
+    result = _fg("C5B4B4") + string_repeat("▼", 10) + _fg()
+    if arr is None:
+        return result
+    return [result for _ in range(arr)]
+def _scrlad(arr: int = None) -> Union[str, list[str]]:
+    result = _fg("52A441") + string_repeat("+", 10) + _fg()
+    if arr is None:
+        return result
+    return [result for _ in range(arr)]
+
 def __now() -> float:
     return time.monotonic() * 1000
 def __load_splash_suspendable(state, args):

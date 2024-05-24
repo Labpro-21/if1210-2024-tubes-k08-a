@@ -77,13 +77,13 @@ def _arena_ui_handler_default(state, args):
             description = ""
             for monster in monsters:
                 monsterType = monster_get(gameState, monster.referenceId)
-                description += f"F: {monsterType.family}, "
-                description += f"L: {monsterType.level}, "
-                description += f"HP: {monster.healthPoints:.1f}, " # TODO: These properties do not include potion effects
-                description += f"ATK: {monster.attackPower:.1f}, "
-                description += f"DEF: {monster.defensePower:.1f} | "
+                description += txtkv("F: ", monsterType.family) + " "
+                description += txtkv("L: ", monsterType.level) + " "
+                description += txtkv("HP: ", f"{monster.healthPoints:.1f}") + " " # TODO: These properties do not include potion effects
+                description += txtkv("ATK: ", f"{monster.attackPower:.1f}") + " "
+                description += txtkv("DEF: ", f"{monster.defensePower:.1f}") + " | "
             description = string_slice(description, 0, -len(" | "))
-            input(f"{trainer.username}", description, id=trainer.id, selectable=True)
+            input(txtplnm(trainer.username), description, id=trainer.id, selectable=True)
         print("Selamat datang di arena! Pilih trainer di bawah untuk mulai bertarung!")
         selection = meta(action="select", signal=cache.abortSignal)
         return SuspendableReturn, "arena:start_menu_choose", selection
@@ -220,13 +220,13 @@ def _arena_ui_handler_default(state, args):
             description = ""
             for monster in monsters:
                 monsterType = monster_get(gameState, monster.referenceId)
-                description += f"F: {monsterType.family}, "
-                description += f"L: {monsterType.level}, "
-                description += f"HP: {monster.healthPoints:.1f}, " # TODO: These properties do not include potion effects
-                description += f"ATK: {monster.attackPower:.1f}, "
-                description += f"DEF: {monster.defensePower:.1f} | "
+                description += txtkv("F: ", monsterType.family) + " "
+                description += txtkv("L: ", monsterType.level) + " "
+                description += txtkv("HP: ", f"{monster.healthPoints:.1f}") + " " # TODO: These properties do not include potion effects
+                description += txtkv("ATK: ", f"{monster.attackPower:.1f}") + " "
+                description += txtkv("DEF: ", f"{monster.defensePower:.1f}") + " | "
             description = string_slice(description, 0, -len(" | "))
-            input(f"{trainer.username}", description, id=trainer.id, selectable=True)
+            input(txtplnm(trainer.username), description, id=trainer.id, selectable=True)
         selection = meta(action="select", signal=cache.abortSignal)
         return SuspendableReturn, "arena:next_stage_new_trainer", selection
     if state == "arena:next_stage_new_trainer":

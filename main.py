@@ -41,6 +41,7 @@ def main(state, args):
             selection = meta(action="select")
             return -1, selection
         gamestate_load(gameState)
+        # gamestate_set_user_id(gameState, 1)
         promise = promise_from_suspendable(menu_show_loading_initial, gameState)
         return "loading", gameState, promise
     if state == "loading":
@@ -73,10 +74,12 @@ def main(state, args):
             return "menu", gameState, console, promise_from_suspendable(menu_show_debug_battle, gameState)
         if menu == "agent:battle_arena":
             return "menu", gameState, console, promise_from_suspendable(menu_show_debug_arena, gameState)
-        if menu == "agent:inventory":
-            return "menu", gameState, console, promise_from_suspendable(menu_show_debug_inventory, gameState)
         if menu == "agent:shop":
             return "menu", gameState, console, promise_from_suspendable(menu_show_debug_shop, gameState)
+        if menu == "agent:laboratory":
+            return "menu", gameState, console, promise_from_suspendable(menu_show_debug_laboratory, gameState)
+        if menu == "agent:inventory":
+            return "menu", gameState, console, promise_from_suspendable(menu_show_debug_inventory, gameState)
         if menu == "admin:shop_management":
             return "menu", gameState, console, promise_from_suspendable(menu_show_debug_shop_management, gameState)
         if menu == "admin:monster_management":

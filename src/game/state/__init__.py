@@ -59,7 +59,7 @@ gamestate_time = _gamestate_time
 gamestate_deltatime = _gamestate_deltatime
 gamestate_rand = _gamestate_rand
 
-from .visual import _Visual, _visual_new, _visual_get_driver, _visual_get_toplevel, _visual_get_view, _visual_get_directory, _visual_set_view, _visual_set_directory, _visual_get_root_view, _visual_add_connect_listener, _visual_remove_connect_listener, _visual_add_disconnect_listener, _visual_remove_disconnect_listener, _visual_is_connected, _visual_add_key_listener, _visual_remove_key_listener, _visual_tick, _visual_draw, _visual_load_splash, _visual_show_frame_sequence, _visual_show_splash, _visual_show_simple_dialog, _visual_show_table, _ConsoleMock, _visual_with_mock, _fg, _bg, _fbg
+from .visual import _Visual, _visual_new, _visual_get_driver, _visual_get_toplevel, _visual_get_view, _visual_get_directory, _visual_set_view, _visual_set_directory, _visual_get_root_view, _visual_add_connect_listener, _visual_remove_connect_listener, _visual_add_disconnect_listener, _visual_remove_disconnect_listener, _visual_is_connected, _visual_add_key_listener, _visual_remove_key_listener, _visual_tick, _visual_draw, _visual_load_splash, _visual_show_frame_sequence, _visual_show_splash, _visual_show_simple_dialog, _visual_show_table, _ConsoleMock, _visual_with_mock, _fg, _bg, _fbg, _smnstr, _omnstr, _ptncl, _stbar, _ratmod, _txtk, _txtv, _txtkv, _txtqty, _txtcrcy, _txtplnm, _txtdngr, _txtprcd, _txtcncl, _txthint, _scrlup, _scrldw, _scrlad
 
 Visual = _Visual
 visual_new = _visual_new
@@ -89,3 +89,21 @@ visual_with_mock = _visual_with_mock
 fg = _fg
 bg = _bg
 fbg = _fbg
+smnstr = _smnstr
+omnstr = _omnstr
+ptncl = _ptncl
+stbar = _stbar
+ratmod = _ratmod
+txtk = _txtk
+txtv = _txtv
+txtkv = _txtkv
+txtqty = _txtqty
+txtcrcy = _txtcrcy
+txtplnm = _txtplnm
+txtdngr = _txtdngr
+txtprcd = _txtprcd
+txtcncl = _txtcncl
+txthint = _txthint
+scrlup = _scrlup
+scrldw = _scrldw
+scrlad = _scrlad
