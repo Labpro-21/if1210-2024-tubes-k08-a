@@ -63,4 +63,11 @@ def _battle_action_attack(gameState: GameState, battle: BattleSchemaType) -> tup
     selfMonsterAttack = max(0, selfMonsterAttack - opponentMonsterDefense)
     opponentMonsterHealth = max(0, opponentMonster.healthPoints - selfMonsterAttack)
     inventory_monster_set(gameState, opponentMonsterId, namedtuple_with(opponentMonster, healthPoints=opponentMonsterHealth))
+    # THIS IS A HACK TO CONFORM THE RULES. Count the damage given.
+    # God, please forgive me.
+    __battleSelfAttackCounter = f"__battle-{battle.id}-turn-{battle.turn}-attack"
+    if __battleSelfAttackCounter in gameState:
+        gameState[__battleSelfAttackCounter] += selfMonsterAttack
+    else:
+        gameState[__battleSelfAttackCounter] = selfMonsterAttack
     return selfMonsterAttack, opponentMonsterHealth

@@ -39,21 +39,21 @@ def _inventory_monster_get_user_monsters(gameState: GameState, userId: int) -> l
 def _inventory_monster_get_calculated_health_points(gameState: GameState, inventoryMonster: InventoryMonsterSchemaType) -> float:
     activePotions = array_map(inventoryMonster.activePotions, lambda p, *_: (p[0], p[1], potion_get(gameState, p[2])))
     activePotions = array_filter(activePotions, lambda p, *_: potion_is_type_definite(p[2].type) and potion_get_type_generic(p[2].type) == "healing")
-    baseAmounts = array_reduce(activePotions, lambda c, p, *_: c + potion_get_calculated_definite_base_amount(p[2], [1]), 0)
+    baseAmounts = array_reduce(activePotions, lambda c, p, *_: c + potion_get_calculated_definite_base_amount(p[2], p[1]), 0)
     multiplierAmounts = array_reduce(activePotions, lambda c, p, *_: c * potion_get_calculated_definite_multiplier_amount(p[2], p[1]), inventoryMonster.healthPoints)
     return baseAmounts + multiplierAmounts
 
 def _inventory_monster_get_calculated_attack_power(gameState: GameState, inventoryMonster: InventoryMonsterSchemaType) -> float:
     activePotions = array_map(inventoryMonster.activePotions, lambda p, *_: (p[0], p[1], potion_get(gameState, p[2])))
     activePotions = array_filter(activePotions, lambda p, *_: potion_is_type_definite(p[2].type) and potion_get_type_generic(p[2].type) == "strength")
-    baseAmounts = array_reduce(activePotions, lambda c, p, *_: c + potion_get_calculated_definite_base_amount(p[2], [1]), 0)
+    baseAmounts = array_reduce(activePotions, lambda c, p, *_: c + potion_get_calculated_definite_base_amount(p[2], p[1]), 0)
     multiplierAmounts = array_reduce(activePotions, lambda c, p, *_: c * potion_get_calculated_definite_multiplier_amount(p[2], p[1]), inventoryMonster.attackPower)
     return baseAmounts + multiplierAmounts
 
 def _inventory_monster_get_calculated_defense_power(gameState: GameState, inventoryMonster: InventoryMonsterSchemaType) -> float:
     activePotions = array_map(inventoryMonster.activePotions, lambda p, *_: (p[0], p[1], potion_get(gameState, p[2])))
     activePotions = array_filter(activePotions, lambda p, *_: potion_is_type_definite(p[2].type) and potion_get_type_generic(p[2].type) == "resilience")
-    baseAmounts = array_reduce(activePotions, lambda c, p, *_: c + potion_get_calculated_definite_base_amount(p[2], [1]), 0)
+    baseAmounts = array_reduce(activePotions, lambda c, p, *_: c + potion_get_calculated_definite_base_amount(p[2], p[1]), 0)
     multiplierAmounts = array_reduce(activePotions, lambda c, p, *_: c * potion_get_calculated_definite_multiplier_amount(p[2], p[1]), inventoryMonster.defensePower)
     return baseAmounts + multiplierAmounts
 
@@ -70,7 +70,7 @@ def _inventory_monster_use_potion(gameState: GameState, inventoryMonster: Invent
         newDefensePower += additionalDefensePower
         if newActivePotion is not None:
             array_push(newActivePotions, (newActivePotion[0], newActivePotion[1], newActivePotion[2].id))
-        potion = potion_get(gameState, potion.nextId)
+        potion = potion_get(gameState, potion.nextId) if potion.nextId is not None else None
     return _inventory_monster_set(gameState, inventoryMonster.id, namedtuple_with(inventoryMonster, healthPoints=newHealthPoints, attackPower=newAttackPower, defensePower=newDefensePower, activePotions=newActivePotions))
 
 def _inventory_monster_tick(gameState: GameState, inventoryMonster: InventoryMonsterSchemaType) -> InventoryMonsterSchemaType:

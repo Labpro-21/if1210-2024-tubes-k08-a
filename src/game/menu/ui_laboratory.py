@@ -29,7 +29,7 @@ __MenuLaboratoryCache = NamedTuple("MenuLaboratoryCache", [
     ("inputPosition", int),
     ("lastTableOffset", int),
     ("tableOffset", int),
-    ("tableLoadIndex", int),
+    ("tableLoadIndices", list[int]),
 ])
 
 def _menu_show_laboratory(state, args):
@@ -62,7 +62,7 @@ def _menu_show_laboratory(state, args):
             inputPosition=-1,
             lastTableOffset=None,
             tableOffset=0,
-            tableLoadIndex=None,
+            tableLoadIndices=[-1],
         )
         return "initInterface", cache, "checkTableLoad"
     if state == "initInterface":
@@ -150,27 +150,41 @@ def _menu_show_laboratory(state, args):
         cache, *_ = args
         gameState = cache.gameState
         tableLoadIndex = (cache.tableOffset + tableMaxShown - 1) // tableMaxShown
-        if cache.tableLoadIndex is not None and tableLoadIndex <= cache.tableLoadIndex:
+        tableBeforeLoadIndex = cache.tableOffset // tableMaxShown
+        if array_includes(cache.tableLoadIndices, tableLoadIndex) and array_includes(cache.tableLoadIndices, tableBeforeLoadIndex):
             visual = gamestate_get_visual(gameState)
             if cache.parent is not None:
                 visual_set_view(visual, visual_get_root_view(visual, cache.parent))
             else:
                 visual_set_view(visual, cache.mainView)
             return "updateTableEntries", cache
-        startIndex = tableLoadIndex * tableMaxShown
-        endIndex = startIndex + tableMaxShown
         def getSpriteFor(upgradeOption: LaboratorySchemaType):
             beforeMonster, afterMonster = __resolve_laboratory_upgrade(gameState, upgradeOption)
             return [beforeMonster.spriteFront, afterMonster.spriteFront]
-        loadUpgrades = array_slice(cache.upgradeOptions, startIndex, endIndex)
-        loadUpgradeSprites = array_map(loadUpgrades, lambda i, *_: getSpriteFor(i))
-        loadUpgradeSprites = array_flat(loadUpgradeSprites)
-        loadUpgradeSprites = array_map(loadUpgradeSprites, lambda s, *_: (f"sprite {s}", s))
-        loadUpgradeSprites = dict_set(dict(), loadUpgradeSprites)
+        loadUpgradeSprites = dict()
+        if not array_includes(cache.tableLoadIndices, tableLoadIndex):
+            startIndex = tableLoadIndex * tableMaxShown
+            endIndex = startIndex + tableMaxShown
+            loadUpgrades = array_slice(cache.upgradeOptions, startIndex, endIndex)
+            loadUpgradeSprites2 = array_map(loadUpgrades, lambda i, *_: getSpriteFor(i))
+            loadUpgradeSprites2 = array_flat(loadUpgradeSprites2)
+            loadUpgradeSprites2 = array_map(loadUpgradeSprites2, lambda s, *_: (f"sprite {s}", s))
+            loadUpgradeSprites = dict_set(loadUpgradeSprites, loadUpgradeSprites2)
+            cache = namedtuple_with(cache,
+                tableLoadIndices=[*cache.tableLoadIndices, tableLoadIndex]
+            )
+        if not array_includes(cache.tableLoadIndices, tableBeforeLoadIndex):
+            startIndex = tableBeforeLoadIndex * tableMaxShown
+            endIndex = startIndex + tableMaxShown
+            loadUpgrades = array_slice(cache.upgradeOptions, startIndex, endIndex)
+            loadUpgradeSprites2 = array_map(loadUpgrades, lambda i, *_: getSpriteFor(i))
+            loadUpgradeSprites2 = array_flat(loadUpgradeSprites2)
+            loadUpgradeSprites2 = array_map(loadUpgradeSprites2, lambda s, *_: (f"sprite {s}", s))
+            loadUpgradeSprites = dict_set(loadUpgradeSprites, loadUpgradeSprites2)
+            cache = namedtuple_with(cache,
+                tableLoadIndices=[*cache.tableLoadIndices, tableBeforeLoadIndex]
+            )
         promise = promise_from_suspendable(_menu_show_loading_splash, gameState, loadUpgradeSprites)
-        cache = namedtuple_with(cache,
-            tableLoadIndex=tableLoadIndex
-        )
         return "checkTableLoad", cache, promise
     if state == "updateTableEntries":
         cache, *_ = args
@@ -183,13 +197,13 @@ def _menu_show_laboratory(state, args):
         upgradeRows = array_slice(cache.upgradeOptions, startIndex, endIndex)
         def getRowFor(i: int, upgradeOption: LaboratorySchemaType):
             beforeMonster, afterMonster = __resolve_laboratory_upgrade(gameState, upgradeOption)
-            hpRatio = (afterMonster.healthPoints - beforeMonster.healthPoints) / beforeMonster.healthPoints
-            atkRatio = (afterMonster.attackPower - beforeMonster.attackPower) / beforeMonster.attackPower
-            defRatio = (afterMonster.defensePower - beforeMonster.defensePower) / beforeMonster.defensePower
+            hpRatio = (afterMonster.healthPoints - beforeMonster.healthPoints) / beforeMonster.healthPoints if beforeMonster.healthPoints != 0 else 0
+            atkRatio = (afterMonster.attackPower - beforeMonster.attackPower) / beforeMonster.attackPower if beforeMonster.attackPower != 0 else 0
+            defRatio = (afterMonster.defensePower - beforeMonster.defensePower) / beforeMonster.defensePower if beforeMonster.defensePower != 0 else 0
             rowName = f"{beforeMonster.name} ({beforeMonster.level}) --> ({afterMonster.level}) {afterMonster.name}"
-            rowHp = f"{beforeMonster.healthPoints} {'+' if hpRatio >= 0 else '-'}{hpRatio * 100:.2f}%"
-            rowAtk = f"{beforeMonster.attackPower} {'+' if atkRatio >= 0 else '-'}{atkRatio * 100:.2f}%"
-            rowDef = f"{beforeMonster.defensePower} {'+' if defRatio >= 0 else '-'}{defRatio * 100:.2f}%"
+            rowHp = f"{beforeMonster.healthPoints} {'+' if hpRatio >= 0 else ''}{hpRatio * 100:.2f}%"
+            rowAtk = f"{beforeMonster.attackPower} {'+' if atkRatio >= 0 else ''}{atkRatio * 100:.2f}%"
+            rowDef = f"{beforeMonster.defensePower} {'+' if defRatio >= 0 else ''}{defRatio * 100:.2f}%"
             return [f"{startIndex + i + 1}", rowName, rowHp, rowAtk, rowDef, f"{upgradeOption.cost}"]
         upgradeRows = array_map(upgradeRows, lambda u, i, *_: getRowFor(i, u))
         tableView["updateRows"]([
@@ -221,10 +235,12 @@ def _menu_show_laboratory(state, args):
             beforePreviewAnimation["stop"]()
             view_remove_child(beforePreviewFrame, beforePreviewAnimation)
             beforePreviewAnimation = None
+            beforeDescriptionView["setContent"]("")
         if afterPreviewAnimation is not None:
             afterPreviewAnimation["stop"]()
             view_remove_child(afterPreviewFrame, afterPreviewAnimation)
             afterPreviewAnimation = None
+            afterDescriptionView["setContent"]("")
         if inputPosition < -1:
             inputPosition = -1
         if inputPosition >= len(cache.upgradeOptions):
@@ -264,6 +280,12 @@ def _menu_show_laboratory(state, args):
                 if event.key == "ControlESC":
                     cleanup()
                     resolve((None, "escape"))
+                if event.key == "Home" or event.key == "PageUp":
+                    resolve((None, "home"))
+                    return
+                if event.key == "End" or event.key == "PageDown":
+                    resolve((None, "end"))
+                    return
             tableView["onHover"](onHover)
             tableView["onEnter"](onEnter)
             visual_add_key_listener(visual, tableView, onKey)
@@ -275,6 +297,20 @@ def _menu_show_laboratory(state, args):
         position, action = inputAction
         if action == "escape":
             return SuspendableReturn, None
+        if action == "home":
+            tableView["setSelection"](1)
+            cache = namedtuple_with(cache,
+                tableOffset=0,
+                inputPosition=0,
+            )
+            return "checkTableLoad", cache
+        if action == "end":
+            tableView["setSelection"](min(len(cache.upgradeOptions), tableMaxShown))
+            cache = namedtuple_with(cache,
+                tableOffset=max(0, len(cache.upgradeOptions) - tableMaxShown),
+                inputPosition=len(cache.upgradeOptions) - 1,
+            )
+            return "checkTableLoad", cache
         tableOffset = cache.tableOffset
         inputPosition = tableOffset + (position - 1)
         if position == 0:
@@ -328,12 +364,12 @@ def _menu_show_laboratory(state, args):
             targetHp = max(userMonster.healthPoints, afterMonster.healthPoints)
             targetAtk = max(userMonster.attackPower, afterMonster.attackPower)
             targetDef = max(userMonster.defensePower, afterMonster.defensePower)
-            hpRatio = (targetHp - userMonster.healthPoints) / userMonster.healthPoints
-            atkRatio = (targetAtk - userMonster.attackPower) / userMonster.attackPower
-            defRatio = (targetDef - userMonster.defensePower) / userMonster.defensePower
-            rowHp = f"{userMonster.healthPoints} {'+' if hpRatio >= 0 else '-'}{hpRatio * 100:.2f}%"
-            rowAtk = f"{userMonster.attackPower} {'+' if atkRatio >= 0 else '-'}{atkRatio * 100:.2f}%"
-            rowDef = f"{userMonster.defensePower} {'+' if defRatio >= 0 else '-'}{defRatio * 100:.2f}%"
+            hpRatio = (targetHp - userMonster.healthPoints) / userMonster.healthPoints if userMonster.healthPoints != 0 else 0
+            atkRatio = (targetAtk - userMonster.attackPower) / userMonster.attackPower if userMonster.attackPower != 0 else 0
+            defRatio = (targetDef - userMonster.defensePower) / userMonster.defensePower if userMonster.defensePower != 0 else 0
+            rowHp = f"{userMonster.healthPoints} {'+' if hpRatio >= 0 else ''}{hpRatio * 100:.2f}%"
+            rowAtk = f"{userMonster.attackPower} {'+' if atkRatio >= 0 else ''}{atkRatio * 100:.2f}%"
+            rowDef = f"{userMonster.defensePower} {'+' if defRatio >= 0 else ''}{defRatio * 100:.2f}%"
             description = f"HP: {rowHp} ATK: {rowAtk} DEF: {rowDef}"
             input(f"{userMonster.name}", description, id=userMonster.id, selectable=True)
         selection = meta(action="select")

@@ -49,7 +49,8 @@ def _toplevel_get_content_size(toplevel: _TopLevel) -> Size:
 def _toplevel_get_frame(toplevel: _TopLevel) -> Rectangle:
     if mixin_is_override(toplevel):
         return mixin_call_override(toplevel)
-    return rectangle_from_point_size(EmptyPoint, _driver_get_size(toplevel["driver"]))
+    __toplevel_update_frame(toplevel)
+    return toplevel["frame"]
 def _toplevel_set_x(toplevel: _TopLevel, x: _Pos) -> None:
     if mixin_is_override(toplevel):
         return mixin_call_override(toplevel)
@@ -78,11 +79,18 @@ def _toplevel_set_frame(toplevel: _TopLevel, frame: Rectangle) -> None:
 def _toplevel_recompute_viewport_size(toplevel: _TopLevel) -> None:
     if mixin_is_override(toplevel):
         return mixin_call_override(toplevel)
-    toplevel["frame"] = rectangle_from_point_size(EmptyPoint, _driver_get_size(toplevel["driver"]))
+    __toplevel_update_frame(toplevel)
     return mixin_call_super(toplevel)
 
 def _toplevel_draw(toplevel: _TopLevel) -> None:
     if mixin_is_override(toplevel):
         return mixin_call_override(toplevel)
-    toplevel["frame"] = rectangle_from_point_size(EmptyPoint, _driver_get_size(toplevel["driver"]))
+    __toplevel_update_frame(toplevel)
     return mixin_call_super(toplevel)
+
+def __toplevel_update_frame(toplevel: _TopLevel) -> None:
+    newFrame = rectangle_from_point_size(EmptyPoint, _driver_get_size(toplevel["driver"]))
+    if newFrame == toplevel["frame"]:
+        return
+    toplevel["frame"] = newFrame
+    toplevel["__unstable_has_changed"] = True

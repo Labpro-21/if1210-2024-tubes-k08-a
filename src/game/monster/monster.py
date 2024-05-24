@@ -1,15 +1,15 @@
 from utils.primordials import *
 from game.state import *
 from game.database import *
-from typing import Callable, Literal
+from typing import Callable, Union
 
 def _monster_get(gameState: GameState, monsterId: int) -> MonsterSchemaType:
     monsterDatabase = gamestate_get_monster_database(gameState)
     return database_get_entry_at(monsterDatabase, monsterId)
 
-def _monster_set(gameState: GameState, monsterId: int, modifier: Callable[[MonsterSchemaType], MonsterSchemaType]) -> MonsterSchemaType:
+def _monster_set(gameState: GameState, monsterId: int, modifier: Union[MonsterSchemaType, Callable[[MonsterSchemaType], MonsterSchemaType]]) -> MonsterSchemaType:
     monsterDatabase = gamestate_get_monster_database(gameState)
-    monster = modifier(database_get_entry_at(monsterDatabase, monsterId))
+    monster = modifier(database_get_entry_at(monsterDatabase, monsterId)) if callable(modifier) else modifier
     database_set_entry_at(monsterDatabase, monsterId, monster)
     return monster
 

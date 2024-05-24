@@ -5,6 +5,9 @@ from game.state import *
 from game.battle import *
 from game.inventory import *
 from game.potion import *
+from game.monster import *
+from game.arena import *
+from game.user import *
 from .battle import _battle_end_player_escaped, _battle_end_player_draw, _battle_end_player_won, _battle_action_attack, _battle_set
 from typing import NamedTuple, Optional, TypedDict, Callable
 
@@ -47,6 +50,14 @@ __MenuBattleCache = NamedTuple("MenuBattleCache", [
 def _battle_ui_handler_wild_monster(state, args):
     cache: __MenuBattleCache = None
     battle: BattleSchemaType = None
+    # THIS IS A HACK TO CONFORM THE RULES. Get arena instance if the battle is part of arena.
+    def getArenaFromBattle(cache: __MenuBattleCache) -> ArenaSchemaType:
+        gameState = cache.gameState
+        battleId = cache.battle.id
+        __battleArenaId = f"__battle-{battleId}-arena-id"
+        if __battleArenaId not in gameState:
+            return None
+        return gameState[__battleArenaId]
     if state == SuspendableInitial:
         phase, cache, *rest = args
         # If we have abortSignal directly in args, it means some user input has been cancelled.
@@ -79,9 +90,15 @@ def _battle_ui_handler_wild_monster(state, args):
         cache, *_ = args
         print, input, meta = cache.dialogConsole
         meta(action="clear")
-        print("Boom! Kamu bertemu dengan monster liar! Apa yang akan kamu lakukan?")
+        # THIS IS A HACK TO CONFORM THE RULES. Custom dialog for arena.
+        arena = getArenaFromBattle(cache)
+        if arena is not None:
+            print("Lawanmu telah mengeluarkan monsternya! Apa yang akan kamu lakukan?")
+        else:
+            print("Boom! Kamu bertemu dengan monster liar! Apa yang akan kamu lakukan?")
         input("Attack", selectable=True)
-        input("Capture", selectable=True)
+        if arena is None:
+            input("Capture", selectable=True)
         input("Kabur", selectable=True)
         selection = meta(action="select", signal=cache.abortSignal)
         return SuspendableReturn, "battle:start_menu#respond", selection
@@ -132,6 +149,9 @@ def _battle_ui_handler_wild_monster(state, args):
         battle = cache.battle
         selfMonster = cache.selfMonster
         opponentMonster = cache.opponentMonster
+        if selfMonster is None: # Can the user's monster be None other than initial battle?
+            # If the user's monster is dead, then we open the monster selection overlay, but all in all it never make it here.
+            return "battle:start_menu", cache
         if selfMonster.healthPoints <= 0 or opponentMonster.healthPoints <= 0:
             return "battle:main#monster_defeated", cache
         if battle.turn != cache.turn:
@@ -139,7 +159,8 @@ def _battle_ui_handler_wild_monster(state, args):
         meta(action="clear")
         print("Ambil tindakan selanjutnya...")
         input("Attack", selectable=True)
-        input("Capture", selectable=True)
+        if getArenaFromBattle(cache) is None:
+            input("Capture", selectable=True)
         input("Tindakan lainnya...", id="page2", selectable=True)
         input("Kabur", selectable=True)
         selection = meta(action="select", signal=cache.abortSignal)
@@ -195,6 +216,14 @@ def _battle_ui_handler_wild_monster(state, args):
                 battle = _battle_set(gameState, battle.id, namedtuple_with(battle, monster1Id=None))
             battle = _battle_end_player_won(gameState, battle, cache.turn)
             print("YEYYY kamu menang! Monster opponent telah mati.")
+            # THIS IS A HACK TO CONFORM THE RULES. User received some amount of money after wild monster battle.
+            if getArenaFromBattle(cache) is None:
+                userId = battle.player1Id if cache.turn == 1 else battle.player2Id if cache.turn == 2 else None
+                opponentMonsterLevel = monster_get(gameState, opponentMonster.referenceId)
+                receivedMoney = 100 * opponentMonsterLevel.level + int(gamestate_rand(gameState) * 70 * opponentMonsterLevel.level)
+                user = user_get(gameState, userId)
+                user = user_set(gameState, user.id, namedtuple_with(user, money=user.money + receivedMoney))
+                print(f"Kamu mendapatkan uang sebanyak {receivedMoney} dari battle ini!")
             input("Lanjut", selectable=True)
             selection = meta(action="select", signal=cache.abortSignal)
             # Bailout to update battle
@@ -297,7 +326,12 @@ def _battle_ui_handler_wild_monster(state, args):
         meta(action="clear")
         print("Pilih monstermu yang ingin digunakan")
         for userMonster in userMonsters:
-            description = f"HP: {userMonster.healthPoints} Attack: {userMonster.attackPower} Defense: {userMonster.defensePower}"
+            monsterType = monster_get(gameState, userMonster.referenceId)
+            description = f"F: {monsterType.family}, "
+            description += f"L: {monsterType.level}, "
+            description += f"HP: {userMonster.healthPoints:.1f}, " # TODO: These properties do not include potion effects
+            description += f"ATK: {userMonster.attackPower:.1f}, "
+            description += f"DEF: {userMonster.defensePower:.1f}"
             input(f"{userMonster.name}", description, id=userMonster.id, selectable=True)
         selection = meta(action="select", signal=cache.abortSignal)
         # Purposefuly undefined behaviour: We expect the database to not change between selection.
@@ -327,11 +361,60 @@ def _battle_ui_handler_wild_monster(state, args):
     if state == "battle:action#capture":
         cache, *_ = args
         print, input, meta = cache.dialogConsole
+        gameState = cache.gameState
+        battle = cache.battle
         meta(action="clear")
-        print("Not implemented")
+        userId = battle.player1Id if cache.turn == 1 else battle.player2Id if cache.turn == 2 else None
+        userMonsterBall = inventory_item_get_user_items(gameState, userId)
+        userMonsterBall = array_find(userMonsterBall, lambda i, *_: i.referenceId == 8 and i.quantity > 0) # ID 8 is for monster ball
+        if userMonsterBall is None:
+            print("Kamu ga ada monster ball yang bisa dipake!")
+            input("Lanjut", selectable=True)
+            selection = meta(action="select", signal=cache.abortSignal)
+            return SuspendableReturn, "battle:main", selection
+        userMonsterBall = inventory_item_set(gameState, userMonsterBall.id, namedtuple_with(userMonsterBall,
+            quantity=userMonsterBall.quantity - 1
+        ))
+        opponentMonster = cache.opponentMonster
+        opponentMonsterType = monster_get(gameState, opponentMonster.referenceId)
+        randomNumber = gamestate_rand(gameState)
+        captureSuccess = False
+        if opponentMonsterType.level == 1 and randomNumber < 0.75:
+            captureSuccess = True
+        if opponentMonsterType.level == 2 and randomNumber < 0.50:
+            captureSuccess = True
+        if opponentMonsterType.level == 3 and randomNumber < 0.25:
+            captureSuccess = True
+        if opponentMonsterType.level == 4 and randomNumber < 0.10:
+            captureSuccess = True
+        if opponentMonsterType.level == 5 and randomNumber < 0.05:
+            captureSuccess = True
+        if not captureSuccess:
+            print("BAM! Kamu mengeluarkan monster ball!")
+            print("Tapi kayaknya monsternya ga ketangkep deh:(")
+            print(f"Sisa monster ball: {userMonsterBall.quantity}")
+            input("Lanjut", selectable=True)
+            selection = meta(action="select", signal=cache.abortSignal)
+            return SuspendableReturn, "battle:main", selection
+        if cache.turn == 1:
+            battle = battle_set(gameState, battle.id, namedtuple_with(battle, monster2Id=None))
+        if cache.turn == 2:
+            battle = battle_set(gameState, battle.id, namedtuple_with(battle, monster1Id=None))
+        opponentMonster = inventory_monster_set(gameState, opponentMonster.id, namedtuple_with(opponentMonster,
+            ownerId=userId
+        ))
+        # Bailout to update battle, this also hides the opponent's monster.
+        return SuspendableReturn, "battle:action#capture_success", userMonsterBall.quantity
+    if state == "battle:action#capture_success":
+        cache, quantity, *_ = args
+        print, input, meta = cache.dialogConsole
+        meta(action="clear")
+        print("BAM! Kamu mengeluarkan monster ball!")
+        print("Yesss. Monsternya berhasil ketangkep!")
+        print(f"Sisa monster ball: {quantity}")
         input("Lanjut", selectable=True)
         selection = meta(action="select", signal=cache.abortSignal)
-        return SuspendableReturn, "battle:main", selection
+        return SuspendableReturn, "battle:end", selection
     if state == "battle:action#use_potion":
         cache, *_ = args
         print, input, meta = cache.dialogConsole
@@ -339,9 +422,11 @@ def _battle_ui_handler_wild_monster(state, args):
         battle = cache.battle
         selfMonsterId = battle.monster1Id if cache.turn == 1 else battle.monster2Id if cache.turn == 2 else None
         userId = battle.player1Id if cache.turn == 1 else battle.player2Id if cache.turn == 2 else None
-        userItems = inventory_item_get_user_items(gameState, userId)
-        userItems = array_filter(userItems, lambda i, *_: i.quantity > 0)
-        if len(userItems) == 0:
+        userMonsterBall = inventory_item_get_user_items(gameState, userId)
+        # THIS IS A HACK TO CONFORM THE RULES. Empty stock are still displayed.
+        # userItems = array_filter(userItems, lambda i, *_: i.quantity > 0)
+        userMonsterBall = array_filter(userMonsterBall, lambda i, *_: i.referenceId != 8) # Potion id 8 is for monster ball
+        if len(userMonsterBall) == 0:
             meta(action="clear")
             print("Kamu gaada potion yang bisa dipakai")
             input("Lanjut", selectable=True)
@@ -356,9 +441,10 @@ def _battle_ui_handler_wild_monster(state, args):
         print, input, meta = modalConsole
         meta(action="clear")
         print("Pilih potion yang ingin digunakan")
-        for userItem in userItems:
+        for userItem in userMonsterBall:
             potion = potion_get(gameState, userItem.referenceId)
-            input(f"{potion.name}", potion.description, id=userItem.id, selectable=True)
+            description = f"Stok: {userItem.quantity} | {potion.description}"
+            input(f"{potion.name}", description, id=userItem.id, selectable=True)
         selection = meta(action="select", signal=cache.abortSignal)
         # Purposefuly undefined behaviour: We expect the database to not change between selection.
         return "battle:main#use_potion_selection", cache, selection, modalView
@@ -370,7 +456,14 @@ def _battle_ui_handler_wild_monster(state, args):
             return "battle:forcefully_aborted"
         if selection is None:
             return SuspendableReturn, "battle:main#page2"
+        print, input, meta = cache.dialogConsole
+        meta(action="clear")
         userItem = inventory_item_get(gameState, selection)
+        if userItem.quantity <= 0:
+            print("Waduh, kamu ga punya potion ini.")
+            input("Lanjut", selectable=True)
+            selection = meta(action="select", signal=cache.abortSignal)
+            return SuspendableReturn, "battle:main#page2", selection
         userItem = inventory_item_set(gameState, userItem.id, namedtuple_with(userItem,
             quantity=userItem.quantity - 1
         ))
@@ -378,10 +471,46 @@ def _battle_ui_handler_wild_monster(state, args):
         battle = cache.battle
         selfMonsterId = battle.monster1Id if cache.turn == 1 else battle.monster2Id if cache.turn == 2 else None
         selfMonster = inventory_monster_get(gameState, selfMonsterId)
-        selfMonster = inventory_monster_use_potion(gameState, selfMonster, potion)
-        print, input, meta = cache.dialogConsole
-        meta(action="clear")
+        # THIS IS A HACK TO CONFORM THE RULES. Apparently, potion can only be used once per battle.
+        # OMG. I am gonna kill myself. This is the fastest thing to patch something up.
+        # My original plan was to change the battle schema type to be append-only history logs.
+        # But it will take more time. This is the most economically-advantage time.
+        __battleMonsterUsedPotionId = f"__battle-{battle.id}-monster{selfMonster.id}-used-potion-{potion.id}"
+        if __battleMonsterUsedPotionId in gameState and gameState[__battleMonsterUsedPotionId] > 0 and potion.id != 5:
+            print("Aduh!! Monstermu gamau sama potion ini:(")
+            input("Lanjut", selectable=True)
+            selection = meta(action="select", signal=cache.abortSignal)
+            return SuspendableReturn, "battle:main#page2", selection
+        if __battleMonsterUsedPotionId in gameState:
+            gameState[__battleMonsterUsedPotionId] += 1
+        else:
+            gameState[__battleMonsterUsedPotionId] = 1
+        # THIS IS A HACK TO CONFORM THE RULES. The way the rule's potion is designed conflicts with my potion design.
+        if potion.id == 5:
+            monsterType = monster_get(gameState, selfMonster.referenceId)
+            newHealthPoints = selfMonster.healthPoints + 0.25 * monsterType.healthPoints
+            newHealthPoints = min(monsterType.healthPoints, newHealthPoints)
+            selfMonster = inventory_monster_set(gameState, selfMonster.id, namedtuple_with(selfMonster,
+                healthPoints=newHealthPoints
+            ))
+        elif potion.id == 6:
+            selfMonster = inventory_monster_set(gameState, selfMonster.id, namedtuple_with(selfMonster,
+                attackPower=selfMonster.attackPower * 1.05
+            ))
+        elif potion.id == 7:
+            selfMonster = inventory_monster_set(gameState, selfMonster.id, namedtuple_with(selfMonster,
+                defensePower=selfMonster.defensePower * 1.05
+            ))
+        else:
+            selfMonster = inventory_monster_use_potion(gameState, selfMonster, potion)
         print(f"Kamu memakai potion '{potion.name}'")
+        # THIS IS A HACK TO CONFORM THE RULES. Print the potion affect message
+        if potion.id == 5:
+            print("Setelah meminum ramuan ini, luka-luka yang ada di dalam tubuh Pikachow sembuh dengan cepat. Dalam sekejap, Pikachow terlihat kembali prima dan siap melanjutkan pertempuran.")
+        elif potion.id == 6:
+            print("Setelah meminum ramuan ini, aura kekuatan terlihat mengelilingi Pikachow dan gerakannya menjadi lebih cepat dan mematikan.")
+        elif potion.id == 7:
+            print("Setelah meminum ramuan ini, muncul sebuah energi pelindung di sekitar Pikachow yang membuatnya terlihat semakin tangguh dan sulit dilukai.")
         input("Lanjut", selectable=True)
         selection = meta(action="select", signal=cache.abortSignal)
         return SuspendableReturn, "battle:main#page2", selection

@@ -277,7 +277,7 @@ def _visual_load_splash(visual: _Visual, name: str, progress: Callable[[float], 
 
 def _visual_show_frame_sequence(
         visual: _Visual, 
-        frames: list[__Text], /,
+        frames: list[list[Rune]], /,
         x: Pos = pos_from_center(),
         y: Pos = pos_from_center(),
         width: Dim = dim_from_fill(0),
@@ -307,13 +307,12 @@ def _visual_show_frame_sequence(
     __visual_attach_key_handler(visual, mainView)
     
     currentFrame = -1
-    compiledFrames = array_map(frames, lambda f, *_: __parse_colored_text(f)[0])
     def setFrame(index: int) -> bool:
         nonlocal currentFrame
-        if index < 0 or index >= len(compiledFrames):
+        if index < 0 or index >= len(frames):
             return False
         currentFrame = index
-        text_formatter_set_text(textFormatter, compiledFrames[index])
+        text_formatter_set_text(textFormatter, frames[index])
         return True
     def nextFrame() -> None:
         nonlocal currentFrame
@@ -734,6 +733,8 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
             selectableClearAfterSelection=True,
             selectableAllowEscape=True,
             selectableAlignment="CenterMiddle",
+            selectableXOffset=0,
+            selectableYOffset=0,
             inputWaitAfterContent=True,
             inputAllowEscape=True,
             inputBoxOffset=1,
@@ -796,6 +797,7 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
             array_push(drawingOnCompletes, lambda: resolve(None))
         return promise_new(executor)
     def clearPrint():
+        nonlocal contentDrawnPosition, contentLastAttribute
         array_splice(content, 0)
         contentDrawnPosition = 0
         contentLastAttribute = RuneAttribute_clear
@@ -896,26 +898,28 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
         if selectableDescription is None:
             selectableDescription = view_new(driver)
             view_set_x(selectableDescription, pos_from_absolute(0))
-            view_set_y(selectableDescription, pos_from_end(1))
+            view_set_y(selectableDescription, pos_add(pos_from_end(None), pos_from_absolute(1)))
             view_set_width(selectableDescription, dim_from_fill(0))
             view_set_height(selectableDescription, dim_from_absolute(2))
             adornment_set_thickness(view_get_border(selectableDescription), Thickness(0, 1, 0, 0))
             _visual_add_key_listener(visual, view, selectableOnKey)
         selectableAlignment = flags["selectableAlignment"]
+        selectableXOffset = flags["selectableXOffset"]
+        selectableYOffset = flags["selectableYOffset"]
         for i in range(len(selectables)):
             selectable = selectables[i]
             if string_starts_with(selectableAlignment, "Left"):
-                view_set_x(selectable, pos_from_absolute(0))
+                view_set_x(selectable, pos_add(pos_from_absolute(0, pos_from_absolute(selectableXOffset))))
             if string_starts_with(selectableAlignment, "Center"):
-                view_set_x(selectable, pos_from_center())
+                view_set_x(selectable, pos_add(pos_from_center(), pos_from_absolute(selectableXOffset)))
             if string_starts_with(selectableAlignment, "Right"):
-                view_set_x(selectable, pos_from_end())
+                view_set_x(selectable, pos_add(pos_from_end(), pos_from_absolute(selectableXOffset)))
             if string_ends_with(selectableAlignment, "Top"):
-                view_set_y(selectable, pos_from_absolute(i + 2))
+                view_set_y(selectable, pos_add(pos_from_absolute(i + 2), pos_from_absolute(selectableYOffset)))
             if string_ends_with(selectableAlignment, "Middle"):
-                view_set_y(selectable, pos_add(pos_from_center(), pos_from_absolute(i - (len(selectables) // 2) + 2)))
+                view_set_y(selectable, pos_add(pos_add(pos_from_center(), pos_from_absolute(i - (len(selectables) // 2) + 2)), pos_from_absolute(selectableYOffset)))
             if string_ends_with(selectableAlignment, "Bottom"):
-                view_set_y(selectable, pos_sub(pos_from_end(), pos_from_absolute(len(selectables) - i - 1)))
+                view_set_y(selectable, pos_add(pos_sub(pos_from_end(), pos_from_absolute(len(selectables) - i - 1)), pos_from_absolute(selectableYOffset)))
             view_set_width(selectable, dim_from_fill(0))
             view_set_height(selectable, dim_from_absolute(1))
     def selectableChange():
@@ -1095,7 +1099,7 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
         if inputDescription is None:
             inputDescription = view_new(driver)
             view_set_x(inputDescription, pos_from_absolute(0))
-            view_set_y(inputDescription, pos_from_end(1))
+            view_set_y(inputDescription, pos_add(pos_from_end(None), pos_from_absolute(1)))
             view_set_width(inputDescription, dim_from_fill(0))
             view_set_height(inputDescription, dim_from_absolute(2))
             adornment_set_thickness(view_get_border(inputDescription), Thickness(0, 1, 0, 0))
@@ -1187,7 +1191,7 @@ def _visual_with_mock(visual: _Visual, view: View, **kwargs) -> _ConsoleMock:
             if inputIndex == -1:
                 newInputIndex = array_find_last_index(inputViews, lambda v, *_: not v["inputDone"])
             else:
-                newInputIndex = array_find_index(inputViews, lambda v, i, *_: not v["inputDone"] and i < inputIndex)
+                newInputIndex = array_find_last_index(inputViews, lambda v, i, *_: not v["inputDone"] and i < inputIndex)
             if newInputIndex == -1:
                 return
             if inputIndex != -1:

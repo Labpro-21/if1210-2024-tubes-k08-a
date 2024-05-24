@@ -2,6 +2,7 @@ from utils.math import *
 from utils.primordials import *
 from utils.mixin import *
 from typing import TypedDict, Any, Callable, Union, Literal, NamedTuple, Optional
+from math import inf
 
 _Direction = Union[
     Literal["Abscissa"],
@@ -468,7 +469,7 @@ _Driver = TypedDict("Driver",
     size=Size,
     attribute=_DriverAttribute,
     contents=list[_Rune],
-    dirtyLines=list[bool]
+    dirtyLines=list[int]
 )
 
 def _driver_new(attribute: _DriverAttribute, **kwargs) -> _Driver:
@@ -506,7 +507,7 @@ def _driver_set_size(driver: _Driver, size: Size) -> None:
         return mixin_call_override(driver)
     driver["size"] = size
     driver["contents"] = [_Rune_clear for _ in range(size.w * size.h)]
-    driver["dirtyLines"] = [True for _ in range(size.h)]
+    driver["dirtyLines"] = [inf for _ in range(size.h)]
 def _driver_set_content(driver: _Driver, x: int, y: int, rune: _Rune) -> None:
     if mixin_is_override(driver):
         return mixin_call_override(driver)
@@ -516,7 +517,7 @@ def _driver_set_content(driver: _Driver, x: int, y: int, rune: _Rune) -> None:
     if x < 0 or y < 0 or x >= size.w or y >= size.h:
         return
     contents[y * size.w + x] = rune
-    dirtyLines[y] = True
+    dirtyLines[y] = min(x, dirtyLines[y])
 def _driver_clear_content(driver: _Driver, x: int, y: int) -> None:
     if mixin_is_override(driver):
         return mixin_call_override(driver)
@@ -529,10 +530,12 @@ def _driver_fill_rect(driver: _Driver, rectangle: Rectangle, rune: _Rune) -> Non
     dirtyLines = driver["dirtyLines"]
     driverBounds = rectangle_from_point_size(EmptyPoint, size)
     bounds = rectangle_intersect(driverBounds, rectangle)
+    if bounds.w == 0 or bounds.h == 0:
+        return
     for y in range(bounds.y, bounds.y + bounds.h):
         for x in range(bounds.x, bounds.x + bounds.w):
             contents[y * size.w + x] = rune
-        dirtyLines[y] = True
+        dirtyLines[y] = min(bounds.x, dirtyLines[y])
 def _driver_clear_rect(driver: _Driver, rectangle: Rectangle = None) -> None:
     if mixin_is_override(driver):
         return mixin_call_override(driver)
@@ -666,42 +669,65 @@ def _text_formatter_get_lines(textFormatter: _TextFormatter) -> list[list[_Rune]
 def _text_formatter_set_text(textFormatter: _TextFormatter, text: list[_Rune]) -> None:
     textFormatter["text"] = text
     textFormatter["recompute"] = True
+    textFormatter["__unstable_has_changed"] = True
     if textFormatter["autoSize"]:
         textFormatter["size"] = _text_formatter_get_calculated_auto_size(textFormatter)
 def _text_formatter_set_auto_size(textFormatter: _TextFormatter, autoSize: bool) -> None:
+    if autoSize == textFormatter["autoSize"]:
+        return
     textFormatter["autoSize"] = autoSize
     textFormatter["recompute"] = True
+    textFormatter["__unstable_has_changed"] = True
     if autoSize:
         textFormatter["size"] = _text_formatter_get_calculated_auto_size(textFormatter)
 def _text_formatter_set_size(textFormatter: _TextFormatter, size: Size) -> None:
-    if textFormatter["autoSize"]:
+    if textFormatter["autoSize"] or size == textFormatter["size"]:
         return
     textFormatter["size"] = size
     textFormatter["recompute"] = True
+    textFormatter["__unstable_has_changed"] = True
 def _text_formatter_set_multiline(textFormatter: _TextFormatter, multiline: bool) -> None:
+    if multiline == textFormatter["multiline"]:
+        return
     textFormatter["multiline"] = multiline
     textFormatter["recompute"] = True
+    textFormatter["__unstable_has_changed"] = True
 def _text_formatter_set_wordwrap(textFormatter: _TextFormatter, wordwrap: bool) -> None:
+    if wordwrap == textFormatter["wordwrap"]:
+        return
     textFormatter["wordwrap"] = wordwrap
     textFormatter["recompute"] = True
+    textFormatter["__unstable_has_changed"] = True
 def _text_formatter_set_direction(textFormatter: _TextFormatter, direction: _TextDirection) -> None:
+    if direction == textFormatter["direction"]:
+        return
     textFormatter["direction"] = direction
     textFormatter["recompute"] = True
+    textFormatter["__unstable_has_changed"] = True
     if textFormatter["autoSize"]:
         textFormatter["size"] = _text_formatter_get_calculated_auto_size(textFormatter)
 def _text_formatter_set_horizontal_alignment(textFormatter: _TextFormatter, horizontalAlignment: _TextHorizontalAlignment) -> None:
+    if horizontalAlignment == textFormatter["horizontalAlignment"]:
+        return
     textFormatter["horizontalAlignment"] = horizontalAlignment
     textFormatter["recompute"] = True
+    textFormatter["__unstable_has_changed"] = True
 def _text_formatter_set_vertical_alignment(textFormatter: _TextFormatter, verticalAlignment: _TextVerticalAlignment) -> None:
+    if verticalAlignment == textFormatter["verticalAlignment"]:
+        return
     textFormatter["verticalAlignment"] = verticalAlignment
     textFormatter["recompute"] = True
+    textFormatter["__unstable_has_changed"] = True
 
 def _text_formatter_draw(textFormatter: _TextFormatter, screen: Rectangle) -> None:
+    if "__unstable_has_changed" not in textFormatter or not textFormatter["__unstable_has_changed"]:
+        return
     driver = textFormatter["driver"]
     direction = textFormatter["direction"]
     horizontalAlignment = textFormatter["horizontalAlignment"]
     verticalAlignment = textFormatter["verticalAlignment"]
     lines = _text_formatter_get_lines(textFormatter)
+    textFormatter["__unstable_has_changed"] = False
     def matchSizeIndexAtPosition(sizes: list[int], offsetIndex: int, position: int) -> int:
         index = offsetIndex
         current = 0
@@ -1245,13 +1271,13 @@ def _border_draw(border: _Border, point: Point) -> None:
     _driver_fill_rect(driver, rectangle_from_point_size(rectangle_get_point(rectangle), Size(rectangle.w, min(rectangle.h, top))), _Rune("─", _RuneAttribute_clear))
     _driver_fill_rect(driver, rectangle_from_point_size(Point(rectangle.x + max(0, rectangle.w - right), rectangle.y), Size(min(rectangle.w, right), rectangle.h)), _Rune("│", _RuneAttribute_clear))
     _driver_fill_rect(driver, rectangle_from_point_size(Point(rectangle.x, rectangle.y + max(0, rectangle.h - bottom)), Size(rectangle.w, min(rectangle.h, bottom))), _Rune("─", _RuneAttribute_clear))
-    if top != 0 and left != 0:
+    if top != 0 and left != 0 and rectangle.w > 0 and rectangle.h > 0:
         _driver_set_content(driver, rectangle.x, rectangle.y, _Rune("╭", _RuneAttribute_clear))
-    if top != 0 and right != 0:
+    if top != 0 and right != 0 and rectangle.w > 0 and rectangle.h > 0:
         _driver_set_content(driver, rectangle.x + rectangle.w - 1, rectangle.y, _Rune("╮", _RuneAttribute_clear))
-    if bottom != 0 and left != 0:
+    if bottom != 0 and left != 0 and rectangle.w > 0 and rectangle.h > 0:
         _driver_set_content(driver, rectangle.x, rectangle.y + rectangle.h - 1, _Rune("╰", _RuneAttribute_clear))
-    if bottom != 0 and right != 0:
+    if bottom != 0 and right != 0 and rectangle.w > 0 and rectangle.h > 0:
         _driver_set_content(driver, rectangle.x + rectangle.w - 1, rectangle.y + rectangle.h - 1, _Rune("╯", _RuneAttribute_clear))
 
 _Padding = type[_Adornment]
@@ -1458,6 +1484,7 @@ def _view_add_child(view: _View, subview: _View) -> None:
     array_push(view["subviews"], subview)
     _view_mark_recompute_layout(view)
     _view_mark_recompute_display(view)
+    view["__unstable_has_changed"] = True
 def _view_remove_child(view: _View, subview: _View) -> None:
     if mixin_is_override(view):
         return mixin_call_override(view, subview)
@@ -1469,6 +1496,7 @@ def _view_remove_child(view: _View, subview: _View) -> None:
     subview["superview"] = None
     _view_mark_recompute_layout(view)
     _view_mark_recompute_display(view)
+    view["__unstable_has_changed"] = True
 
 def _view_resolve_computed_layout(view: _View, superviewContentSize: Size) -> None:
     if mixin_is_override(view):
@@ -1640,26 +1668,47 @@ def _view_draw(view: _View) -> None:
     if mixin_is_override(view):
         return mixin_call_override(view)
     driver = view["driver"]
+    frame = view["frame"]
     margin = view["margin"]
     border = view["border"]
     padding = view["padding"]
+    superview = view["superview"]
     subviews = view["subviews"]
     textFormatter = view["textFormatter"]
     
+    frameToScreenPoint = _view_transform_frame_to_screen(view)
     _view_recompute_viewport_size(view)
-    screen = _view_transform_content_to_screen(view, EmptyPoint)
+    if(
+        ("__unstable_has_changed" in view and view["__unstable_has_changed"]) or
+        ("__unstable_has_changed" in textFormatter and textFormatter["__unstable_has_changed"]) or
+        (superview is not None and "__unstable_has_changed" in superview and superview["__unstable_has_changed"])
+    ):
+        view["__unstable_has_changed"] = True
+        textFormatter["__unstable_has_changed"] = True
+
+        _driver_clear_rect(driver, rectangle_from_point_size(frameToScreenPoint, rectangle_get_size(frame)))
+        _adornment_draw(margin, frameToScreenPoint)
+        _adornment_draw(border, frameToScreenPoint)
+        _adornment_draw(padding, frameToScreenPoint)
+
+        if superview is not None:
+            # Unstable: Edge case, we support overlapping by putting the most-front element to be the last in the subviews array.
+            # We need to mark the superview to __unstable_has_changed, to make the next our siblings to redraw. Thus we are overlapped.
+            superview["__unstable_has_changed"] = True
+            superview["__unstable_overlap_force_redraw_next"] = True
+    
     paddingInside = _thickness_compute_inside(_adornment_get_thickness(padding), _adornment_get_frame(padding))
-    newPoint = Point(screen.x + paddingInside.x, screen.y + paddingInside.y)
+    newPoint = Point(frameToScreenPoint.x + paddingInside.x, frameToScreenPoint.y + paddingInside.y)
     inner = rectangle_from_point_size(newPoint, rectangle_get_size(paddingInside))
-    _driver_clear_rect(driver, inner)
-    
-    adornmentScreen = _view_transform_frame_to_screen(view)
-    _adornment_draw(margin, adornmentScreen)
-    _adornment_draw(border, adornmentScreen)
-    _adornment_draw(padding, adornmentScreen)
-    
     _text_formatter_set_size(textFormatter, rectangle_get_size(inner))
     _text_formatter_draw(textFormatter, inner)
     
     for subview in subviews:
         _view_draw(subview)
+    if "__unstable_overlap_force_redraw_next" in view and view["__unstable_overlap_force_redraw_next"]:
+        # Recursively force call redraw on our next siblings.
+        view["__unstable_overlap_force_redraw_next"] = False
+        if superview is not None:
+            superview["__unstable_has_changed"] = True
+            superview["__unstable_overlap_force_redraw_next"] = True
+    view["__unstable_has_changed"] = False

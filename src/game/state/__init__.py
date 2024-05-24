@@ -1,4 +1,4 @@
-from .state import _UserSchemaType, _UserSchemaProperties, _UserSchema, _UserDatabase, _MonsterSchemaType, _MonsterSchemaProperties, _MonsterSchema, _MonsterDatabase, _PotionSchemaType, _PotionSchemaProperties, _PotionSchema, _PotionDatabase, _BattleSchemaType, _BattleSchemaProperties, _BattleSchema, _BattleDatabase, _ArenaSchemaType, _ArenaSchemaProperties, _ArenaSchema, _ArenaDatabase, _ShopSchemaType, _ShopSchemaProperties, _ShopSchema, _ShopDatabase, _LaboratorySchemaType, _LaboratorySchemaProperties, _LaboratorySchema, _LaboratoryDatabase, _InventoryItemSchemaType, _InventoryItemSchemaProperties, _InventoryItemSchema, _InventoryItemDatabase, _InventoryMonsterSchemaType, _InventoryMonsterSchemaProperties, _InventoryMonsterSchema, _InventoryMonsterDatabase, _GameState, _gamestate_new, _gamestate_save, _gamestate_get_user_database, _gamestate_get_monster_database, _gamestate_get_potion_database, _gamestate_get_battle_database, _gamestate_get_arena_database, _gamestate_get_shop_database, _gamestate_get_laboratory_database, _gamestate_get_inventory_item_database, _gamestate_get_inventory_monster_database, _gamestate_get_user_id, _gamestate_get_visual, _gamestate_set_user_id, _gamestate_time, _gamestate_deltatime, _gamestate_rand
+from .state import _UserSchemaType, _UserSchemaProperties, _UserSchema, _UserDatabase, _MonsterSchemaType, _MonsterSchemaProperties, _MonsterSchema, _MonsterDatabase, _PotionSchemaType, _PotionSchemaProperties, _PotionSchema, _PotionDatabase, _BattleSchemaType, _BattleSchemaProperties, _BattleSchema, _BattleDatabase, _ArenaSchemaType, _ArenaSchemaProperties, _ArenaSchema, _ArenaDatabase, _ShopSchemaType, _ShopSchemaProperties, _ShopSchema, _ShopDatabase, _LaboratorySchemaType, _LaboratorySchemaProperties, _LaboratorySchema, _LaboratoryDatabase, _InventoryItemSchemaType, _InventoryItemSchemaProperties, _InventoryItemSchema, _InventoryItemDatabase, _InventoryMonsterSchemaType, _InventoryMonsterSchemaProperties, _InventoryMonsterSchema, _InventoryMonsterDatabase, _GameState, _gamestate_new, _gamestate_load, _gamestate_save, _gamestate_get_directory, _gamestate_change_save_dir, _gamestate_get_user_database, _gamestate_get_monster_database, _gamestate_get_potion_database, _gamestate_get_battle_database, _gamestate_get_arena_database, _gamestate_get_shop_database, _gamestate_get_laboratory_database, _gamestate_get_inventory_item_database, _gamestate_get_inventory_monster_database, _gamestate_get_user_id, _gamestate_get_visual, _gamestate_set_user_id, _gamestate_tick, _gamestate_time, _gamestate_deltatime, _gamestate_rand
 
 UserSchemaType = _UserSchemaType
 UserSchemaProperties = _UserSchemaProperties
@@ -38,7 +38,10 @@ InventoryMonsterSchema = _InventoryMonsterSchema
 InventoryMonsterDatabase = _InventoryMonsterDatabase
 GameState = _GameState
 gamestate_new = _gamestate_new
+gamestate_load = _gamestate_load
 gamestate_save = _gamestate_save
+gamestate_get_directory = _gamestate_get_directory
+gamestate_change_save_dir = _gamestate_change_save_dir
 gamestate_get_user_database = _gamestate_get_user_database
 gamestate_get_monster_database = _gamestate_get_monster_database
 gamestate_get_potion_database = _gamestate_get_potion_database
@@ -51,6 +54,7 @@ gamestate_get_inventory_monster_database = _gamestate_get_inventory_monster_data
 gamestate_get_user_id = _gamestate_get_user_id
 gamestate_get_visual = _gamestate_get_visual
 gamestate_set_user_id = _gamestate_set_user_id
+gamestate_tick = _gamestate_tick
 gamestate_time = _gamestate_time
 gamestate_deltatime = _gamestate_deltatime
 gamestate_rand = _gamestate_rand

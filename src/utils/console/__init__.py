@@ -215,7 +215,7 @@ view_transform_viewport_to_screen = _view_transform_viewport_to_screen
 view_transform_content_to_screen = _view_transform_content_to_screen
 view_draw = _view_draw
 
-from .driver_std import _GetchKeyEvent, _KeyEvent, _DriverStd, _driverstd_new, _driverstd_tick, _driverstd_add_key_listener, _driverstd_remove_key_listener, _driverstd_draw, _driverstd_move_line, _driverstd_set_current_attribute
+from .driver_std import _GetchKeyEvent, _KeyEvent, _DriverStd, _driverstd_new, _driverstd_tick, _driverstd_add_key_listener, _driverstd_remove_key_listener, _RuneAttribute_debug, _driverstd_draw, _driverstd_move_cursor, _driverstd_set_current_attribute, driverstd_reset_console
 
 GetchKeyEvent = _GetchKeyEvent
 KeyEvent = _KeyEvent
@@ -224,9 +224,11 @@ driverstd_new = _driverstd_new
 driverstd_tick = _driverstd_tick
 driverstd_add_key_listener = _driverstd_add_key_listener
 driverstd_remove_key_listener = _driverstd_remove_key_listener
+RuneAttribute_debug = _RuneAttribute_debug
 driverstd_draw = _driverstd_draw
-driverstd_move_line = _driverstd_move_line
+driverstd_move_cursor = _driverstd_move_cursor
 driverstd_set_current_attribute = _driverstd_set_current_attribute
+driverstd_reset_console = driverstd_reset_console
 
 from .views import _TopLevel, _toplevel_new, _toplevel_get_x, _toplevel_get_y, _toplevel_get_width, _toplevel_get_height, _toplevel_get_content_size, _toplevel_get_frame, _toplevel_set_x, _toplevel_set_y, _toplevel_set_width, _toplevel_set_height, _toplevel_set_content_size, _toplevel_set_frame, _toplevel_recompute_viewport_size, _toplevel_draw
 

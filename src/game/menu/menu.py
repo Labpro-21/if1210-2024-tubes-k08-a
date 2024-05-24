@@ -87,6 +87,7 @@ def _menu_show_main_menu(state, args):
         input("Battle Arena", "Memulai battle dengan trainer", selectable=True)
         input("Inventory", "Melihat isi inventory mu", selectable=True)
         input("Shop", "Membuka shop untuk beli monster/item", selectable=True)
+        input("Save", "Menyimpan save game", selectable=True)
         input("Logout", "Keluar dari akun yang sedang digunakan", selectable=True)
         input("Exit", selectable=True)
         selection = meta(action="select")
@@ -103,6 +104,8 @@ def _menu_show_main_menu(state, args):
             return SuspendableReturn, "agent:inventory"
         if selection == "Shop":
             return SuspendableReturn, "agent:shop"
+        if selection == "Save":
+            return SuspendableReturn, "agent:save"
         if selection == "Logout":
             return SuspendableReturn, "agent:logout"
         if selection == "Exit":
@@ -114,6 +117,7 @@ def _menu_show_main_menu(state, args):
         input("Shop Management", "Melakukan manajemen pada SHOP sebagai tempat jual beli peralatan Agent", selectable=True)
         input("Monster Management", "Melakukan manajemen pada MONSTER", selectable=True)
         input("Debug Test", "Kumpulan debug untuk testing program", selectable=True)
+        input("Save", "Menyimpan save game", selectable=True)
         input("Logout", "Keluar dari akun yang sedang digunakan", selectable=True)
         input("Exit", selectable=True)
         selection = meta(action="select")
@@ -128,6 +132,8 @@ def _menu_show_main_menu(state, args):
             return SuspendableReturn, "admin:monster_management"
         if selection == "Debug Test":
             return SuspendableReturn, "admin:debug_test"
+        if selection == "Save":
+            return SuspendableReturn, "admin:save"
         if selection == "Logout":
             return SuspendableReturn, "admin:logout"
         if selection == "Exit":
@@ -146,6 +152,7 @@ def _menu_show_exit(state, args):
         print, input, meta = console
         print("Yakin mau keluar?")
         input("Kembali", selectable=True)
+        input(f"{fg('e63131')}Keluar dan save{fg()}", selectable=True)
         input(f"{fg('e63131')}Keluar{fg()}", selectable=True)
         selection = meta(action="select")
         return 2, gameState, console, selection
@@ -153,5 +160,7 @@ def _menu_show_exit(state, args):
         gameState, console, selection = args
         if selection is None or selection == "Kembali":
             return SuspendableReturn, False
-        return SuspendableReturn, True
+        if selection == "Keluar dan save":
+            return SuspendableReturn, 0
+        return SuspendableReturn, 1
     return SuspendableExhausted

@@ -1,15 +1,15 @@
 from utils.primordials import *
 from game.state import *
 from game.database import *
-from typing import Callable, Literal
+from typing import Callable, Union, Literal
 
 def _potion_get(gameState: GameState, potionId: int) -> PotionSchemaType:
     potionDatabase = gamestate_get_potion_database(gameState)
     return database_get_entry_at(potionDatabase, potionId)
 
-def _potion_set(gameState: GameState, potionId: int, modifier: Callable[[PotionSchemaType], PotionSchemaType]) -> PotionSchemaType:
+def _potion_set(gameState: GameState, potionId: int, modifier: Union[PotionSchemaType, Callable[[PotionSchemaType], PotionSchemaType]]) -> PotionSchemaType:
     potionDatabase = gamestate_get_potion_database(gameState)
-    potion = modifier(database_get_entry_at(potionDatabase, potionId))
+    potion = modifier(database_get_entry_at(potionDatabase, potionId)) if callable(modifier) else modifier
     database_set_entry_at(potionDatabase, potionId, potion)
     return potion
 
@@ -29,6 +29,11 @@ def _potion_new(gameState: GameState) -> PotionSchemaType:
     )
     database_set_entry_at(potionDatabase, potionId, potion)
     return potion
+
+def _potion_get_all_potions(gameState: GameState) -> list[PotionSchemaType]:
+    potionDatabase = gamestate_get_potion_database(gameState)
+    potionEntries = database_get_entries(potionDatabase)
+    return potionEntries
 
 def _potion_get_type_generic(type: str) -> Literal["healing", "strength", "resilience"]:
     if type == "HealingDefinite" or type == "HealingIndefinite":

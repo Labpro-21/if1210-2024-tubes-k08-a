@@ -5,6 +5,7 @@ from game.state import *
 from game.battle import *
 from game.monster import *
 from game.inventory import *
+from game.potion import *
 from .menu import _menu_show_loading_splash
 from typing import NamedTuple, Optional, TypedDict, Callable
 
@@ -262,21 +263,39 @@ def _menu_show_battle(state, args):
             return string
         if selfMonster is not None:
             selfStatView = cache.selfStatView
+            hpCalculated = inventory_monster_get_calculated_health_points(gameState, selfMonster)
+            atkCalculated = inventory_monster_get_calculated_attack_power(gameState, selfMonster)
+            defCalculated = inventory_monster_get_calculated_defense_power(gameState, selfMonster)
+            hpRatio = (hpCalculated - selfMonster.healthPoints) / selfMonster.healthPoints if selfMonster.healthPoints != 0 else 0
+            atkRatio = (atkCalculated - selfMonster.attackPower) / selfMonster.attackPower if selfMonster.attackPower != 0 else 0
+            defRatio = (defCalculated - selfMonster.defensePower) / selfMonster.defensePower if selfMonster.defensePower != 0 else 0
+            potionNames = array_map(selfMonster.activePotions, lambda p, i, *_: f"\t{i + 1}. {potion_get(gameState, p[2]).name}")
+            newLine = "\n" # OMFG. I hate python.
             selfStatView["setContent"](formatString(f"""
                 Nama: {selfMonster.name}
-                HP: {selfMonster.healthPoints:.1f}
-                Attack: {selfMonster.attackPower}
-                Defense: {selfMonster.defensePower}
-                Potions: {0}
+                Level: {monster_get(gameState, selfMonster.referenceId).level}
+                HP: {selfMonster.healthPoints:.1f}{f"{'+' if hpRatio >= 0 else ''}{hpRatio * 100:.2f}%" if hpRatio != 0 else ""}
+                Attack: {selfMonster.attackPower}{f"{'+' if atkRatio >= 0 else ''}{atkRatio * 100:.2f}%" if atkRatio != 0 else ""}
+                Defense: {selfMonster.defensePower}{f"{'+' if defRatio >= 0 else ''}{defRatio * 100:.2f}%" if defRatio != 0 else ""}
+                Potions: {"-" if len(potionNames) == 0 else f"{newLine}{array_join(potionNames, newLine)}"}
             """))
         if opponentMonster is not None:
             opponentStatView = cache.opponentStatView
+            hpCalculated = inventory_monster_get_calculated_health_points(gameState, opponentMonster)
+            atkCalculated = inventory_monster_get_calculated_attack_power(gameState, opponentMonster)
+            defCalculated = inventory_monster_get_calculated_defense_power(gameState, opponentMonster)
+            hpRatio = (hpCalculated - opponentMonster.healthPoints) / opponentMonster.healthPoints if opponentMonster.healthPoints != 0 else 0
+            atkRatio = (atkCalculated - opponentMonster.attackPower) / opponentMonster.attackPower if opponentMonster.attackPower != 0 else 0
+            defRatio = (defCalculated - opponentMonster.defensePower) / opponentMonster.defensePower if opponentMonster.defensePower != 0 else 0
+            potionNames = array_map(opponentMonster.activePotions, lambda p, i, *_: f"\t{i + 1}. {potion_get(gameState, p[2]).name}")
+            newLine = "\n"
             opponentStatView["setContent"](formatString(f"""
                 Nama: {opponentMonster.name}
-                HP: {opponentMonster.healthPoints:.1f}
-                Attack: {opponentMonster.attackPower}
-                Defense: {opponentMonster.defensePower}
-                Potions: {0}
+                Level: {monster_get(gameState, opponentMonster.referenceId).level}
+                HP: {opponentMonster.healthPoints:.1f}{f"{'+' if hpRatio >= 0 else ''}{hpRatio * 100:.2f}%" if hpRatio != 0 else ""}
+                Attack: {opponentMonster.attackPower}{f"{'+' if atkRatio >= 0 else ''}{atkRatio * 100:.2f}%" if atkRatio != 0 else ""}
+                Defense: {opponentMonster.defensePower}{f"{'+' if defRatio >= 0 else ''}{defRatio * 100:.2f}%" if defRatio != 0 else ""}
+                Potions: {"-" if len(potionNames) == 0 else f"{newLine}{array_join(potionNames, newLine)}"}
             """))
         cache = namedtuple_with(cache,
             battle=battle,
@@ -287,6 +306,25 @@ def _menu_show_battle(state, args):
         battleHandler = cache.battleHandler
         battleHandlerCache = cache.battleHandlerCache
         if battleHandlerCache["phase"] == "battle:end":
+            # THIS IS A HACK TO CONFORM THE RULES. After each battle, the monster stats are restarted to base value.
+            selfUserId = battle.player1Id if cache.turn == 1 else battle.player2Id if cache.turn == 2 else None
+            opponentUserId = battle.player2Id if cache.turn == 1 else battle.player1Id if cache.turn == 2 else None
+            for selfMonster in inventory_monster_get_user_monsters(gameState, selfUserId):
+                monsterType = monster_get(gameState, selfMonster.referenceId)
+                selfMonster = inventory_monster_set(gameState, selfMonster.id, namedtuple_with(selfMonster,
+                    healthPoints=monsterType.healthPoints,
+                    attackPower=monsterType.attackPower,
+                    defensePower=monsterType.defensePower,
+                    activePotions=[],
+                ))
+            for opponentMonster in inventory_monster_get_user_monsters(gameState, opponentUserId):
+                monsterType = monster_get(gameState, opponentMonster.referenceId)
+                opponentMonster = inventory_monster_set(gameState, opponentMonster.id, namedtuple_with(opponentMonster,
+                    healthPoints=monsterType.healthPoints,
+                    attackPower=monsterType.attackPower,
+                    defensePower=monsterType.defensePower,
+                    activePotions=[],
+                ))
             if cache.parent is not None:
                 view_remove_child(cache.parent, cache.mainView)
             else:

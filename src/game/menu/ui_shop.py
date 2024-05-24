@@ -27,7 +27,7 @@ __MenuShopCache = NamedTuple("MenuShopCache", [
     ("inputPosition", int),
     ("lastTableOffset", int),
     ("tableOffset", int),
-    ("tableLoadIndex", int),
+    ("tableLoadIndices", int),
 ])
 
 def _menu_show_shop(state, args):
@@ -35,11 +35,14 @@ def _menu_show_shop(state, args):
     tableMaxShown = 10
     if state is SuspendableInitial:
         gameState, parent, abortSignal = args
+        shopItems = shop_get_all_items(gameState)
+        # THIS IS A HACK TO CONFORM THE RULES. Empty stock are still displayed.
+        # shopItems = array_filter(shopItems, lambda s, *_: s.stock > 0)
         cache = __MenuShopCache(
             gameState=gameState,
             parent=parent,
             abortSignal=abortSignal,
-            shopItems=shop_get_all_items(gameState),
+            shopItems=shopItems,
             mainView=None,
             tableView=None,
             itemView=None,
@@ -52,7 +55,7 @@ def _menu_show_shop(state, args):
             inputPosition=-1,
             lastTableOffset=None,
             tableOffset=0,
-            tableLoadIndex=None,
+            tableLoadIndices=[-1],
         )
         return "initInterface", cache, "checkTableLoad"
     if state == "initInterface":
@@ -71,9 +74,10 @@ def _menu_show_shop(state, args):
         tableView = visual_show_table(visual, 
             [
                 ("No.", dim_from_absolute(5), "Center"), 
-                ("Tipe", dim_sub(dim_from_factor(0.2), dim_from_absolute(2)), "Right", (1, 0, 1, 0)), 
+                ("Tipe", dim_sub(dim_from_factor(0.15), dim_from_absolute(2)), "Right", (1, 0, 1, 0)), 
                 ("Nama", dim_sub(dim_from_factor(0.6), dim_from_absolute(4)), "Left", (1, 0, 1, 0)), 
-                ("Harga", dim_sub(dim_from_factor(0.2), dim_from_absolute(1)), "Center")],
+                ("Stok", dim_sub(dim_from_factor(0.1), dim_from_absolute(1)), "Center"),
+                ("Harga", dim_sub(dim_from_factor(0.15), dim_from_absolute(1)), "Center")],
             [],
             x=pos_from_absolute(0), y=pos_from_absolute(2),
             width=dim_from_factor(0.6), height=dim_from_fill(0),
@@ -121,23 +125,36 @@ def _menu_show_shop(state, args):
         cache, *_ = args
         gameState = cache.gameState
         tableLoadIndex = (cache.tableOffset + tableMaxShown - 1) // tableMaxShown
-        if cache.tableLoadIndex is not None and tableLoadIndex <= cache.tableLoadIndex:
+        tableBeforeLoadIndex = cache.tableOffset // tableMaxShown
+        if array_includes(cache.tableLoadIndices, tableLoadIndex) and array_includes(cache.tableLoadIndices, tableBeforeLoadIndex):
             visual = gamestate_get_visual(gameState)
             if cache.parent is not None:
                 visual_set_view(visual, visual_get_root_view(visual, cache.parent))
             elif cache.mainView is not None:
                 visual_set_view(visual, cache.mainView)
             return "updateTableEntries", cache
-        startIndex = tableLoadIndex * tableMaxShown
-        endIndex = startIndex + tableMaxShown
-        loadItems = array_slice(cache.shopItems, startIndex, endIndex)
-        loadItemSprites = array_map(loadItems, lambda i, *_: __resolve_shop_item(gameState, i)[2])
-        loadItemSprites = array_map(loadItemSprites, lambda s, *_: (f"sprite {s}", s))
-        loadItemSprites = dict_set(dict(), loadItemSprites)
+        loadItemSprites = dict()
+        if not array_includes(cache.tableLoadIndices, tableLoadIndex):
+            startIndex = tableLoadIndex * tableMaxShown
+            endIndex = startIndex + tableMaxShown
+            loadItems = array_slice(cache.shopItems, startIndex, endIndex)
+            loadItemSprites2 = array_map(loadItems, lambda i, *_: __resolve_shop_item(gameState, i)[2])
+            loadItemSprites2 = array_map(loadItemSprites2, lambda s, *_: (f"sprite {s}", s))
+            loadItemSprites = dict_set(loadItemSprites, loadItemSprites2)
+            cache = namedtuple_with(cache,
+                tableLoadIndices=[*cache.tableLoadIndices, tableLoadIndex]
+            )
+        if not array_includes(cache.tableLoadIndices, tableBeforeLoadIndex):
+            startIndex = tableBeforeLoadIndex * tableMaxShown
+            endIndex = startIndex + tableMaxShown
+            loadItems = array_slice(cache.shopItems, startIndex, endIndex)
+            loadItemSprites2 = array_map(loadItems, lambda i, *_: __resolve_shop_item(gameState, i)[2])
+            loadItemSprites2 = array_map(loadItemSprites2, lambda s, *_: (f"sprite {s}", s))
+            loadItemSprites = dict_set(loadItemSprites, loadItemSprites2)
+            cache = namedtuple_with(cache,
+                tableLoadIndices=[*cache.tableLoadIndices, tableBeforeLoadIndex]
+            )
         promise = promise_from_suspendable(_menu_show_loading_splash, gameState, loadItemSprites)
-        cache = namedtuple_with(cache,
-            tableLoadIndex=tableLoadIndex
-        )
         return "checkTableLoad", cache, promise
     if state == "updateTableEntries":
         cache, *_ = args
@@ -148,11 +165,14 @@ def _menu_show_shop(state, args):
         startIndex = cache.tableOffset
         endIndex = startIndex + tableMaxShown
         itemRows = array_slice(cache.shopItems, startIndex, endIndex)
-        itemRows = array_map(itemRows, lambda it, i, *_: [f"{startIndex + i + 1}", it.referenceType, __resolve_shop_item(gameState, it)[0], f"{it.cost}"])
+        def getRowFor(i: int, shopItem: ShopSchemaType):
+            resolvedItem = __resolve_shop_item(gameState, shopItem)
+            return [f"{startIndex + i + 1}", shopItem.referenceType, resolvedItem[0], f"{shopItem.stock}", f"{shopItem.cost}"]
+        itemRows = array_map(itemRows, lambda it, i, *_: getRowFor(i, it))
         tableView["updateRows"]([
-            ["▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲"],
+            ["▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲", "▲▲▲▲▲▲"],
             *itemRows,
-            ["▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼"],
+            ["▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼", "▼▼▼▼▼▼"],
         ])
         cache = namedtuple_with(cache,
             lastTableOffset=cache.tableOffset
@@ -175,6 +195,7 @@ def _menu_show_shop(state, args):
             itemPreviewAnimation["stop"]()
             view_remove_child(itemPreviewFrame, itemPreviewAnimation)
             itemPreviewAnimation = None
+            itemDescriptionView["setContent"]("")
         if inputPosition < -1:
             inputPosition = -1
         if inputPosition >= len(cache.shopItems):
@@ -184,7 +205,12 @@ def _menu_show_shop(state, args):
             itemName, itemDescription, itemSprite = __resolve_shop_item(gameState, shopItem)
             itemPreviewAnimation = visual_show_splash(visual, itemSprite, parent=itemPreviewFrame)
             itemPreviewAnimation["play"](60, True)
-            itemDescriptionView["setContent"](f"ID: {inputPosition}\nNama: {itemName}\nHarga: {shopItem.cost}\n{itemDescription}")
+            description = f"ID: {inputPosition}\n"
+            description += f"Nama: {itemName}\n"
+            description += f"Harga: {shopItem.cost} "
+            description += f"Stok: {shopItem.stock}\n"
+            description += itemDescription
+            itemDescriptionView["setContent"](description)
         cache = namedtuple_with(cache,
             lastInputPosition=inputPosition,
             itemPreviewAnimation=itemPreviewAnimation,
@@ -210,6 +236,12 @@ def _menu_show_shop(state, args):
                 if event.key == "ControlESC":
                     cleanup()
                     resolve((None, "escape"))
+                if event.key == "Home" or event.key == "PageUp":
+                    resolve((None, "home"))
+                    return
+                if event.key == "End" or event.key == "PageDown":
+                    resolve((None, "end"))
+                    return
             tableView["onHover"](onHover)
             tableView["onEnter"](onEnter)
             visual_add_key_listener(visual, tableView, onKey)
@@ -221,6 +253,20 @@ def _menu_show_shop(state, args):
         position, action = inputAction
         if action == "escape":
             return SuspendableReturn, None
+        if action == "home":
+            tableView["setSelection"](1)
+            cache = namedtuple_with(cache,
+                tableOffset=0,
+                inputPosition=0,
+            )
+            return "checkTableLoad", cache
+        if action == "end":
+            tableView["setSelection"](min(len(cache.shopItems), tableMaxShown))
+            cache = namedtuple_with(cache,
+                tableOffset=max(0, len(cache.shopItems) - tableMaxShown),
+                inputPosition=len(cache.shopItems) - 1,
+            )
+            return "checkTableLoad", cache
         tableOffset = cache.tableOffset
         inputPosition = tableOffset + (position - 1)
         if position == 0:
@@ -255,12 +301,28 @@ def _menu_show_shop(state, args):
         buyDialogView = cache.buyDialogView
         tableView["selectable"](False)
         view_add_child(mainView["contentView"], buyDialogView)
-        userMoney = user_get_current(gameState).money
+        currentUser = user_get_current(gameState)
+        userMoney = currentUser.money
         print, input, meta = cache.buyDialogConsole
         shopItem = cache.shopItems[cache.inputPosition]
         itemName = __resolve_shop_item(gameState, shopItem)[0]
         meta(action="clear")
         print(f"==== Beli '{itemName}' @ {shopItem.cost} ====")
+        if shopItem.stock <= 0:
+            print("Waduh! Kayaknya stoknya lagi kosong. Mampir kapan-kapan lagi ya.")
+            input("Lanjut", selectable=True)
+            selection = meta(action="select")
+            return "buyDialogConfirmChoose", cache, None, "Batal", selection
+        # THIS IS A HACK TO CONFORM THE RULES. Apparently you cannot have two monsters with the same type? WHYY??
+        if shopItem.referenceType == "monster":
+            userMonsters = inventory_monster_get_user_monsters(gameState, currentUser.id)
+            if array_some(userMonsters, lambda m, *_: m.referenceId == shopItem.referenceId):
+                print("Kamu telah memiliki monster ini!")
+                input("Lanjut", selectable=True)
+                selection = meta(action="select")
+                return "buyDialogConfirmChoose", cache, None, "Batal", selection
+            # THIS IS A HACK TO CONFORM THE RULES. You can only have one for each monster types. Don't bother to show quantity dialog.
+            return "buyDialogConfirm", cache, "1"
         print("Masukkan jumlah yang ingin dibeli.")
         def onChange(v):
             meta(action="clearPrint")
@@ -274,7 +336,9 @@ def _menu_show_shop(state, args):
             subtotal = quantity * shopItem.cost
             print(f"Total harga: {quantity} * {shopItem.cost} = {subtotal}")
             if userMoney < subtotal:
-                print(f"Uangmu tidak cukup.")
+                print(f"Uangmu tidak cukup.", end=" ")
+            if quantity > shopItem.stock:
+                print(f"Stok di shop tidak cukup.", end=" ")
         quantity = input("Jumlah: ", f"Uangmu: {userMoney}", onChange=onChange)
         return "buyDialogConfirm", cache, quantity
     if state == "buyDialogConfirm":
@@ -291,8 +355,11 @@ def _menu_show_shop(state, args):
         meta(action="clear")
         userMoney = user_get_current(gameState).money
         subtotal = quantity * shopItem.cost
-        if userMoney < subtotal:
-            print(f"Uangmu tidak cukup. ", end="")
+        if userMoney < subtotal or quantity > shopItem.stock:
+            if userMoney < subtotal:
+                print(f"Uangmu tidak cukup.", end=" ")
+            if quantity > shopItem.stock:
+                print(f"Stok di shop tidak cukup.", end=" ")
             input("Lanjut", selectable=True)
             selection = meta(action="select")
             return "buyDialogConfirmChoose", cache, None, "Batal", selection
@@ -319,6 +386,9 @@ def _menu_show_shop(state, args):
         if selection == "Batal":
             return "updateItemView", cache
         shopItem = cache.shopItems[cache.inputPosition]
+        shopItem = shop_set(gameState, shopItem.id, namedtuple_with(shopItem,
+            stock=shopItem.stock - quantity
+        ))
         currentUser = user_get_current(gameState)
         userMoney = currentUser.money - quantity * shopItem.cost
         currentUser = user_set(gameState, currentUser.id, namedtuple_with(currentUser, money=userMoney))
@@ -326,7 +396,7 @@ def _menu_show_shop(state, args):
             monsterType = monster_get(gameState, shopItem.referenceId)
             for _ in range(quantity):
                 newMonster = inventory_monster_new(gameState)
-                newMonster = inventory_monster_new(gameState, newMonster.id, namedtuple_with(newMonster,
+                newMonster = inventory_monster_set(gameState, newMonster.id, namedtuple_with(newMonster,
                     ownerId=currentUser.id,
                     referenceId=monsterType.id,
                     name=monsterType.name,
@@ -351,7 +421,26 @@ def _menu_show_shop(state, args):
                 userItem = inventory_item_set(gameState, userItem.id, namedtuple_with(userItem,
                     quantity=userItem.quantity + quantity
                 ))
-        return "updateItemView", cache
+        newShopItems = shop_get_all_items(gameState)
+        # THIS IS A HACK TO CONFORM THE RULES. Empty stock are still displayed.
+        # newShopItems = array_filter(newShopItems, lambda s, *_: s.stock > 0)
+        if len(newShopItems) != len(cache.shopItems):
+            return "reloadAll", cache
+        cache = namedtuple_with(cache, 
+            shopItems=newShopItems,
+            lastTableOffset=-1,
+            lastInputPosition=-1,
+        )
+        return "updateTableEntries", cache
+    if state == "reloadAll": # I am too lazy, sorry.
+        cache, *_ = args
+        gameState = cache.gameState
+        visual = gamestate_get_visual(gameState)
+        if cache.parent is not None:
+            view_remove_child(cache.parent, cache.mainView)
+        else:
+            visual_set_view(visual, None)
+        return SuspendableInitial, cache.gameState, cache.parent, cache.abortSignal
     return SuspendableExhausted
 
 def __resolve_shop_item(gameState: GameState, shopItem: ShopSchemaType):

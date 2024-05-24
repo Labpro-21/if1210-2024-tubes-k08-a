@@ -1,5 +1,4 @@
 /.private/
-/data/saves/**
 node_modules/
 
 # Byte-compiled / optimized / DLL files

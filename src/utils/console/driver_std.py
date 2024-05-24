@@ -2,6 +2,7 @@ from utils.primordials import *
 from utils.math import *
 from typing import TypedDict, NamedTuple, Union, Callable, Any
 from .console import _Driver, _DriverAttribute, _driver_new, _driver_set_size, _Rune, _RuneAttribute, _RuneAttribute_clear
+from math import inf, isinf
 import sys
 import os
 
@@ -113,11 +114,11 @@ _DriverStd = TypedDict("DriverStd",
     size=Size,
     attribute=_DriverAttribute,
     contents=list[_Rune],
-    dirtyLines=list[bool],
+    dirtyLines=list[int],
     
     keyListeners=list[Callable[[_KeyEvent], Any]],
-    lastLine=int,
-    lastAttribute=_RuneAttribute
+    lastCursor=tuple[int, int],
+    lastAttribute=_RuneAttribute,
 )
 
 def _driverstd_new() -> _DriverStd:
@@ -128,8 +129,8 @@ def _driverstd_new() -> _DriverStd:
             _driver_draw=_driverstd_draw
         ),
         keyListeners=[],
-        lastLine=-1,
-        lastAttribute=None
+        lastCursor=None,
+        lastAttribute=None,
     )
     _driver_set_size(result, __get_terminal_size())
     return result
@@ -138,17 +139,16 @@ __driverstd_tick_keyboard = None
 if os.name == "nt":
     import msvcrt
     def tickKeyboard(driverstd: _DriverStd) -> None:
-        if not msvcrt.kbhit():
-            return
-        key = ord(msvcrt.getwch())
-        if key == 0 or key == 224:
-            key = (key, ord(msvcrt.getwch()))
-        getchKeyEvent = array_find(__GetchKeyEvent_table, lambda e, *_: e[0] == key)
-        if getchKeyEvent is None:
-            return
-        keyListeners = driverstd["keyListeners"]
-        for keyListener in keyListeners:
-            keyListener(getchKeyEvent)
+        while msvcrt.kbhit():
+            key = ord(msvcrt.getwch())
+            if key == 0 or key == 224:
+                key = (key, ord(msvcrt.getwch()))
+            getchKeyEvent = array_find(__GetchKeyEvent_table, lambda e, *_: e[0] == key)
+            if getchKeyEvent is None:
+                continue
+            keyListeners = driverstd["keyListeners"]
+            for keyListener in keyListeners:
+                keyListener(getchKeyEvent)
     __driverstd_tick_keyboard = tickKeyboard
 
 def _driverstd_tick(driverstd: _DriverStd) -> None:
@@ -172,29 +172,54 @@ def _driverstd_remove_key_listener(driverstd: _DriverStd, listener: Callable[[_K
         return
     array_splice(keyListeners, listenerIndex, 1)
 
+_RuneAttribute_debug = _RuneAttribute(0, 1, False, False, (255, 255, 255), (255, 0, 0))
 def _driverstd_draw(driverstd: _DriverStd) -> None:
     size = driverstd["size"]
     contents = driverstd["contents"]
     dirtyLines = driverstd["dirtyLines"]
+    drawDirtyLines = "__unstable_draw_dirty_lines" in driverstd and driverstd["__unstable_draw_dirty_lines"]
+    lastDirtyLines = None
+    if drawDirtyLines:
+        if "__lastDirtyLines" in driverstd and driverstd["__lastDirtyLines"] is not None:
+            lastDirtyLines = driverstd["__lastDirtyLines"]
+        else:
+            lastDirtyLines = [inf for _ in range(1000)]
+            driverstd["__lastDirtyLines"] = lastDirtyLines
     for y in range(size.h):
-        if not dirtyLines[y]:
+        dirtyLine = dirtyLines[y]
+        if isinf(dirtyLine):
+            if drawDirtyLines and dirtyLine != lastDirtyLines[y]:
+                overlapped = len(str(dirtyLine))
+                lastDirtyLines[y] = dirtyLine
+                _driverstd_move_cursor(driverstd, y)
+                for x in range(overlapped):
+                    rune = contents[y * size.w + x]
+                    _driverstd_set_current_attribute(driverstd, rune.attribute)
+                    sys.stdout.write(rune.character)
             continue
-        _driverstd_move_line(driverstd, y)
-        for x in range(size.w):
+        dirtyLines[y] = inf
+        _driverstd_move_cursor(driverstd, y, dirtyLine)
+        for x in range(dirtyLine, size.w):
             rune = contents[y * size.w + x]
             _driverstd_set_current_attribute(driverstd, rune.attribute)
             sys.stdout.write(rune.character)
-    _driverstd_move_line(driverstd, size.h - 1)
+        if drawDirtyLines and dirtyLine != lastDirtyLines[y]:
+            lastDirtyLines[y] = dirtyLine
+            _driverstd_move_cursor(driverstd, y)
+            _driverstd_set_current_attribute(driverstd, _RuneAttribute_debug)
+            sys.stdout.write(f"{dirtyLine}")
+    _driverstd_move_cursor(driverstd, size.h - 1)
     _driverstd_set_current_attribute(driverstd, _RuneAttribute_clear)
     sys.stdout.flush()
 
-def _driverstd_move_line(driverstd: _DriverStd, line: int) -> None:
-    line = max(0, min(driverstd["size"].h - 1, line))
-    if driverstd["lastLine"] == line:
+def _driverstd_move_cursor(driverstd: _DriverStd, column: int, row: int = 0) -> None:
+    column = max(0, min(driverstd["size"].h - 1, column))
+    row = max(0, min(driverstd["size"].w - 1, row))
+    if driverstd["lastCursor"] == (column, row):
         return
-    command = f"\x1b[{line + 1};H"
+    command = f"\x1b[{column + 1};{row + 1}H"
     sys.stdout.write(command)
-    driverstd["lastLine"] = line
+    driverstd["lastCursor"] = (column, row)
 
 def _driverstd_set_current_attribute(driverstd: _DriverStd, attribute: _RuneAttribute) -> str:
     lastAttribute = driverstd["lastAttribute"]
@@ -225,6 +250,12 @@ def _driverstd_set_current_attribute(driverstd: _DriverStd, attribute: _RuneAttr
             command += f"\x1b[48;2;{r};{g};{b}m"
     sys.stdout.write(command)
     driverstd["lastAttribute"] = attribute
+
+def driverstd_reset_console():
+    driverstd = _driverstd_new()
+    _driverstd_set_current_attribute(driverstd, _RuneAttribute_clear)
+    _driverstd_move_cursor(driverstd, driverstd["size"].h - 1)
+    sys.stdout.flush()
 
 def __get_terminal_size() -> Size:
     value = os.get_terminal_size()

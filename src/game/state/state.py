@@ -4,6 +4,7 @@ from game.database import *
 from .visual import _Visual, _visual_new
 from typing import TypedDict, NamedTuple, Literal, Optional
 from os import path
+import time
 
 _UserSchemaType = NamedTuple("User", [
     ("id", int),
@@ -73,7 +74,7 @@ _PotionSchemaProperties = [
     database_property_new("multiplierAmount", float, lambda x: float(x), lambda x: str(x)),
     database_property_new("duration", float, lambda x: float(x), lambda x: str(x)),
     database_property_new("curve", int, lambda x: int(x), lambda x: str(x)),
-    # database_property_new("flags", list[int], lambda x: array_map(string_split(x, "|"), lambda v: int(v)), lambda x: array_join(array_map(x, lambda v: str(v)), "|")),
+    # database_property_new("flags", list[int], lambda x: array_map(string_split(x, "|"), lambda v, *_: int(v)), lambda x: array_join(array_map(x, lambda v, *_: str(v)), "|")),
     database_property_new("sprite", str, lambda x: x, lambda x: x),
     database_property_new("nextId", int, lambda x: int(x) if x != "" else None, lambda x: str(x) if x != None else ""),
 ]
@@ -112,7 +113,7 @@ _ArenaSchemaType = NamedTuple("Arena", [
 _ArenaSchemaProperties = [
     database_property_new("id", int, lambda x: int(x), lambda x: str(x)),
     database_property_new("playerId", int, lambda x: int(x), lambda x: str(x)),
-    database_property_new("battleIds", list[int], lambda x: array_map(string_split(x, "|"), lambda v: int(v) if len(v) > 0 else None), lambda x: array_join(array_map(x, lambda v: str(v) if v is not None else ""), "|")),
+    database_property_new("battleIds", list[int], lambda x: array_map(string_split(x, "|"), lambda v, *_: int(v) if len(v) > 0 else None), lambda x: array_join(array_map(x, lambda v, *_: str(v) if v is not None else ""), "|")),
     database_property_new("handler", str, lambda x: x, lambda x: x),
 ]
 _ArenaSchema = database_schema_new("csv", _ArenaSchemaType, _ArenaSchemaProperties)
@@ -122,12 +123,14 @@ _ShopSchemaType = NamedTuple("Shop", [
     ("id", int),
     ("referenceType", Literal["monster", "item"]), # A way for `referenceId` to know which database to look for.
     ("referenceId", int), # if `referenceType` is "monster" then look for `id` in monsterDatabase, otherwise look for `id` in potionDatabase
+    ("stock", int),
     ("cost", float),
 ])
 _ShopSchemaProperties = [
     database_property_new("id", int, lambda x: int(x), lambda x: str(x)),
     database_property_new("referenceType", str, lambda x: x, lambda x: x),
     database_property_new("referenceId", int, lambda x: int(x), lambda x: str(x)),
+    database_property_new("stock", int, lambda x: int(x), lambda x: str(x)),
     database_property_new("cost", int, lambda x: float(x), lambda x: str(x)),
 ]
 _ShopSchema = database_schema_new("csv", _ShopSchemaType, _ShopSchemaProperties)
@@ -185,12 +188,13 @@ _InventoryMonsterSchemaProperties = [
     database_property_new("defensePower", float, lambda x: float(x), lambda x: str(x)),
     database_property_new("activePotions", list[tuple[float, float, int]], 
         lambda x: array_filter(array_map(string_split(x, "|"), lambda v, *_: (float(string_split(v, "`")[0]), float(string_split(v, "`")[1]), int(string_split(v, "`")[2])) if len(v) > 0 else None), lambda p, *_: p is not None), 
-        lambda x: array_join(array_map(x, lambda v, *_: (str(v[0]) + "`" + str(v[1]) + "`" + str(v[2])) if v is not None else "", "|"))),
+        lambda x: array_join(array_map(x, lambda v, *_: (str(v[0]) + "`" + str(v[1]) + "`" + str(v[2])) if v is not None else ""), "|")),
 ]
 _InventoryMonsterSchema = database_schema_new("csv", _InventoryMonsterSchemaType, _InventoryMonsterSchemaProperties)
 _InventoryMonsterDatabase = Database[_InventoryMonsterSchemaType]
 
 _GameState = TypedDict("GameState",
+    directory=str,
     userDatabase=_UserDatabase, # readonly
     monsterDatabase=_MonsterDatabase, # readonly
     potionDatabase=_PotionDatabase, # readonly
@@ -201,7 +205,10 @@ _GameState = TypedDict("GameState",
     inventoryItemDatabase=_InventoryItemDatabase, # readonly
     inventoryMonsterDatabase=_InventoryMonsterDatabase, # readonly
     userId=Optional[int], # If the user is logged in, the value must refer to userDatabase, otherwise it must be None
-    visual=_Visual
+    visual=_Visual,
+    lastTick=float,
+    time=float,
+    deltaTime=float,
 )
 
 def _gamestate_new(directory: str) -> _GameState:
@@ -214,16 +221,8 @@ def _gamestate_new(directory: str) -> _GameState:
     laboratoryDatabase = database_new(path.join(directory, "database_laboratory.csv"), _LaboratorySchema)
     inventoryItemDatabase = database_new(path.join(directory, "database_inventory_item.csv"), _InventoryItemSchema)
     inventoryMonsterDatabase = database_new(path.join(directory, "database_inventory_monster.csv"), _InventoryMonsterSchema)
-    database_load(userDatabase)
-    database_load(monsterDatabase)
-    database_load(potionDatabase)
-    database_load(battleDatabase)
-    database_load(arenaDatabase)
-    database_load(shopDatabase)
-    database_load(laboratoryDatabase)
-    database_load(inventoryItemDatabase)
-    database_load(inventoryMonsterDatabase)
     return dict(
+        directory=directory,
         userDatabase=userDatabase,
         monsterDatabase=monsterDatabase,
         potionDatabase=potionDatabase,
@@ -234,8 +233,21 @@ def _gamestate_new(directory: str) -> _GameState:
         inventoryItemDatabase=inventoryItemDatabase,
         inventoryMonsterDatabase=inventoryMonsterDatabase,
         userId=None,
-        visual=_visual_new()
+        visual=_visual_new(),
+        lastTick=None,
+        time=0,
+        deltaTime=None
     )
+def _gamestate_load(gameState: _GameState) -> None:
+    database_load(gameState["userDatabase"])
+    database_load(gameState["monsterDatabase"])
+    database_load(gameState["potionDatabase"])
+    database_load(gameState["battleDatabase"])
+    database_load(gameState["arenaDatabase"])
+    database_load(gameState["shopDatabase"])
+    database_load(gameState["laboratoryDatabase"])
+    database_load(gameState["inventoryItemDatabase"])
+    database_load(gameState["inventoryMonsterDatabase"])
 def _gamestate_save(gameState: _GameState) -> None:
     database_save(gameState["userDatabase"])
     database_save(gameState["monsterDatabase"])
@@ -246,6 +258,19 @@ def _gamestate_save(gameState: _GameState) -> None:
     database_save(gameState["laboratoryDatabase"])
     database_save(gameState["inventoryItemDatabase"])
     database_save(gameState["inventoryMonsterDatabase"])
+def _gamestate_get_directory(gameState: _GameState) -> str:
+    return gameState["directory"]
+def _gamestate_change_save_dir(gameState: _GameState, directory: str) -> None:
+    # THIS IS A HACK TO CONFORM THE RULES. This is ugly, need to resort how to safely change save directory.
+    gameState["userDatabase"]["handle"] = path.join(directory, "database_user.csv")
+    gameState["monsterDatabase"]["handle"] = path.join(directory, "database_monster.csv")
+    gameState["potionDatabase"]["handle"] = path.join(directory, "database_potion.csv")
+    gameState["battleDatabase"]["handle"] = path.join(directory, "database_battle.csv")
+    gameState["arenaDatabase"]["handle"] = path.join(directory, "database_arena.csv")
+    gameState["shopDatabase"]["handle"] = path.join(directory, "database_shop.csv")
+    gameState["laboratoryDatabase"]["handle"] = path.join(directory, "database_laboratory.csv")
+    gameState["inventoryItemDatabase"]["handle"] = path.join(directory, "database_inventory_item.csv")
+    gameState["inventoryMonsterDatabase"]["handle"] = path.join(directory, "database_inventory_monster.csv")
 def _gamestate_get_user_database(gameState: _GameState) -> _UserDatabase:
     return gameState["userDatabase"]
 def _gamestate_get_monster_database(gameState: _GameState) -> _MonsterDatabase:
@@ -271,10 +296,22 @@ def _gamestate_get_visual(gameState: _GameState) -> _Visual:
 def _gamestate_set_user_id(gameState: _GameState, userId: Optional[int]) -> None:
     gameState["userId"] = userId
 
+def _gamestate_tick(gameState: _GameState) -> None:
+    now = __now()
+    lastTick = gameState["lastTick"]
+    if lastTick is None:
+        lastTick = now
+    deltaTime = lastTick - now
+    gameState["lastTick"] = lastTick
+    gameState["deltaTime"] = deltaTime
+    gameState["time"] += deltaTime
 # this is different from time.time(), this time is local to the game save. Updated every tick, may return same value if it is on the same tick.
 def _gamestate_time(gameState: _GameState) -> float:
-    return 0
+    return gameState["time"]
 def _gamestate_deltatime(gameState: _GameState) -> float:
-    return 0
+    return gameState["deltaTime"]
 def _gamestate_rand(gameState: _GameState) -> float:
     return rand()
+
+def __now() -> float:
+    return time.monotonic() * 1000

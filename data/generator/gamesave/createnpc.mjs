@@ -14,7 +14,7 @@ const randString = () => {
 }
 
 (async () => {
-	const monsters = JSON.parse(await fs.readFile(path.join(__dirname, "../monsters/database_monster.json"), "utf-8"))
+	const monsters = JSON.parse(await fs.readFile(path.join(__dirname, "../monsters/og-database_monster.json"), "utf-8"))
 		.filter(m => fs0.existsSync(path.join(__dirname, "../../assets/", m.spriteDefault)));
 	const trainerUsers = [];
 	const idOffset = 6;

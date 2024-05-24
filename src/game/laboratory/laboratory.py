@@ -1,15 +1,15 @@
 from utils.primordials import *
 from game.state import *
 from game.database import *
-from typing import Callable
+from typing import Callable, Union
 
 def _laboratory_get(gameState: GameState, laboratoryId: int) -> LaboratorySchemaType:
     laboratoryDatabase = gamestate_get_laboratory_database(gameState)
     return database_get_entry_at(laboratoryDatabase, laboratoryId)
 
-def _laboratory_set(gameState: GameState, laboratoryId: int, modifier: Callable[[LaboratorySchemaType], LaboratorySchemaType]) -> LaboratorySchemaType:
+def _laboratory_set(gameState: GameState, laboratoryId: int, modifier: Union[LaboratorySchemaType, Callable[[LaboratorySchemaType], LaboratorySchemaType]]) -> LaboratorySchemaType:
     laboratoryDatabase = gamestate_get_laboratory_database(gameState)
-    laboratory = modifier(database_get_entry_at(laboratoryDatabase, laboratoryId))
+    laboratory = modifier(database_get_entry_at(laboratoryDatabase, laboratoryId)) if callable(modifier) else modifier
     database_set_entry_at(laboratoryDatabase, laboratoryId, laboratory)
     return laboratory
 

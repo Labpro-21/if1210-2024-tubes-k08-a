@@ -1,4 +1,5 @@
 from utils.primordials import *
+from os import path, makedirs
 
 def __get_arr(handle: str) -> list[list[str]]:
     # membuat array of array dari file csv
@@ -15,13 +16,25 @@ def __get_arr(handle: str) -> list[list[str]]:
     return res
 
 def _csv_read_from_file(handle: str) -> list[list[str]]:
+    if not path.exists(handle):
+        return []
     return array_slice(__get_arr(handle), 0, -1)
 
 def _csv_write_to_file(handle: str, data: list[list[str]]) -> None:
-    with open(handle) as f:
-        lines = array_map(data, lambda d, *_: array_join(d, ";"))
+    if not path.exists(path.basename(handle)):
+        makedirs(path.basename(handle))
+    def escapeStr(d: str):
+        escaped = d
+        escaped = string_replace_all(escaped, "\\", "\\\\")
+        escaped = string_replace_all(escaped, "\"", "\\\"")
+        escaped = string_replace_all(escaped, "\n", "\\n")
+        if len(escaped) == len(d):
+            return d
+        return f"\"{escaped}\""
+    with open(handle, "wb") as f:
+        lines = array_map(data, lambda d, *_: array_join(array_map(d, lambda s, *_: escapeStr(s)), ";"))
         combinedLines = array_join(lines, "\n")
-        f.write(combinedLines)
+        f.write(combinedLines.encode("utf-8"))
 
 # __parse_csv_line("")
 # __parse_csv_line("a;")

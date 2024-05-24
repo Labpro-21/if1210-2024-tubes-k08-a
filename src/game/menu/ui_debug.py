@@ -6,10 +6,14 @@ from game.battle import *
 from game.monster import *
 from game.inventory import *
 from game.arena import *
+from .menu import _menu_show_loading_splash
 from .ui_battle import _menu_show_battle
 from .ui_arena import _menu_show_arena
 from .ui_shop import _menu_show_shop
 from .ui_laboratory import _menu_show_laboratory
+from .ui_inventory import _menu_show_inventory
+from .ui_shop_management import _menu_show_shop_management
+from .ui_monster_management import _menu_show_monster_management
 import time
 
 def _menu_show_debug_test(state, args):
@@ -23,19 +27,32 @@ def _menu_show_debug_test(state, args):
         gameState, console = args
         print, input, meta = console
         print("Pilih kumpulan debug test untuk mengetes fitur program")
+        input("Unload all splash", selectable=True)
         input("Coroutines Stats", selectable=True)
+        input("Draw Dirty Lines", selectable=True)
         input("Battle Test", selectable=True)
         input("Arena Test", selectable=True)
         input("Shop Test", selectable=True)
         input("Laboratory Test", selectable=True)
+        input("Inventory Test", selectable=True)
+        input("Shop Management Test", selectable=True)
+        input("Monster Management Test", selectable=True)
         selection = meta(action="select")
         return 2, gameState, console, selection
     if state == 2:
         gameState, console, selection = args
         if selection is None:
             return SuspendableReturn, None
+        if selection == "Unload all splash":
+            visual = gamestate_get_visual(gameState)
+            loadingSplash = visual["splashes"]["loading1.gif.txt"]
+            dict_clear(visual["splashes"])
+            visual["splashes"]["loading1.gif.txt"] = loadingSplash
+            return SuspendableReturn, None
         if selection == "Coroutines Stats":
             return SuspendableReturn, None, promise_from_suspendable(_menu_toggle_coroutines_stats, gameState)
+        if selection == "Draw Dirty Lines":
+            return SuspendableReturn, None, promise_from_suspendable(_menu_toggle_draw_dirty_lines, gameState)
         if selection == "Battle Test":
             return SuspendableReturn, None, promise_from_suspendable(_menu_show_debug_battle, gameState)
         if selection == "Arena Test":
@@ -44,6 +61,12 @@ def _menu_show_debug_test(state, args):
             return SuspendableReturn, None, promise_from_suspendable(_menu_show_debug_shop, gameState)
         if selection == "Laboratory Test":
             return SuspendableReturn, None, promise_from_suspendable(_menu_show_debug_laboratory, gameState)
+        if selection == "Inventory Test":
+            return SuspendableReturn, None, promise_from_suspendable(_menu_show_debug_inventory, gameState)
+        if selection == "Shop Management Test":
+            return SuspendableReturn, None, promise_from_suspendable(_menu_show_debug_shop_management, gameState)
+        if selection == "Monster Management Test":
+            return SuspendableReturn, None, promise_from_suspendable(_menu_show_debug_monster_management, gameState)
     return SuspendableExhausted
 
 def _menu_toggle_coroutines_stats(state, args):
@@ -83,11 +106,15 @@ def _menu_toggle_coroutines_stats(state, args):
             frame += 1
             if frame % 5 == 0:
                 # Force on top
-                view_remove_child(toplevel, statsView)
-                view_add_child(toplevel, statsView)
+                toplevelSubviews = toplevel["subviews"]
+                index = array_index_of(toplevelSubviews, statsView)
+                if index != len(toplevelSubviews) - 1:
+                    view_remove_child(toplevel, statsView)
+                    view_add_child(toplevel, statsView)
             looper = looper_get_current()
+            driverSize = driver_get_size(driver)
             statsView["setContent"](array_join(array_map(string_split(string_trim(f"""
-                FPS: {lastFps:.2f}
+                FPS: {lastFps:.2f} ({driverSize.w} x {driverSize.h})
                 Timers length: {len(looper["timers"])}
                 Pollables length: {len(looper["pollables"])}
                 Immediates length: {len(looper["immediates"])}
@@ -112,35 +139,41 @@ def _menu_toggle_coroutines_stats(state, args):
         return SuspendableReturn, None
     return SuspendableExhausted
 
+def _menu_toggle_draw_dirty_lines(state, args):
+    if state is SuspendableInitial:
+        gameState, = args
+        visual = gamestate_get_visual(gameState)
+        driver = visual_get_driver(visual)
+        if "__unstable_draw_dirty_lines" in driver and driver["__unstable_draw_dirty_lines"]:
+            driver["__unstable_draw_dirty_lines"] = False
+        else:
+            driver["__unstable_draw_dirty_lines"] = True
+        return SuspendableReturn, None
+    return SuspendableExhausted
+
 def _menu_show_debug_battle(state, args):
     if state is SuspendableInitial:
         gameState, = args
-        # visual = gamestate_get_visual(gameState)
-        # background = visual_show_splash(visual, "menu_background.gif.txt")
-        # background["play"](60, True)
-        background = None
+        promise = promise_from_suspendable(_menu_show_loading_splash, gameState, [("battle splash", "battle_background.png.txt")])
+        return 1, gameState, promise
+    if state == 1:
+        gameState, *_ = args
+        visual = gamestate_get_visual(gameState)
+        background = visual_show_splash(visual, "battle_background.png.txt")
+        background["play"](60, True)
         selfId = gamestate_get_user_id(gameState)
         opponentId = 0
-        selfMonster = inventory_monster_new(gameState)
-        selfMonster = inventory_monster_set(gameState, selfMonster.id, namedtuple_with(selfMonster, 
-            ownerId=selfId, 
-            referenceId=305, 
-            name="Monster 1", 
-            experiencePoints=0,
-            healthPoints=230, 
-            attackPower=70, 
-            defensePower=110,
-            activePotions=[]
-        ))
         opponentMonster = inventory_monster_new(gameState)
+        randomOpponentMonsterType = monster_get_all_monsters(gameState)
+        randomOpponentMonsterType = randomOpponentMonsterType[int(gamestate_rand(gameState) * len(randomOpponentMonsterType))]
         opponentMonster = inventory_monster_set(gameState, opponentMonster.id, namedtuple_with(opponentMonster, 
             ownerId=opponentId, 
-            referenceId=181, 
-            name="Monster 2", 
+            referenceId=randomOpponentMonsterType.id, 
+            name=f"Wild {randomOpponentMonsterType.name}", 
             experiencePoints=0,
-            healthPoints=490, 
-            attackPower=75, 
-            defensePower=80,
+            healthPoints=randomOpponentMonsterType.healthPoints, 
+            attackPower=randomOpponentMonsterType.attackPower, 
+            defensePower=randomOpponentMonsterType.defensePower,
             activePotions=[]
         ))
         battle = battle_new(gameState)
@@ -148,7 +181,7 @@ def _menu_show_debug_battle(state, args):
             turn=1,
             player1Id=selfId,
             player2Id=opponentId,
-            monster1Id=selfMonster.id,
+            monster1Id=None,
             monster2Id=opponentMonster.id,
             verdict=-1,
             handler="default_wild_monster$"
@@ -160,10 +193,13 @@ def _menu_show_debug_battle(state, args):
 def _menu_show_debug_arena(state, args):
     if state is SuspendableInitial:
         gameState, = args
-        # visual = gamestate_get_visual(gameState)
-        # background = visual_show_splash(visual, "menu_background.gif.txt")
-        # background["play"](60, True)
-        background = None
+        promise = promise_from_suspendable(_menu_show_loading_splash, gameState, [("arena splash", "arena_background.png.txt")])
+        return 1, gameState, promise
+    if state == 1:
+        gameState, *_ = args
+        visual = gamestate_get_visual(gameState)
+        background = visual_show_splash(visual, "arena_background.png.txt")
+        background["play"](60, True)
         selfId = gamestate_get_user_id(gameState)
         arena = arena_new(gameState)
         arena = arena_set(gameState, arena.id, namedtuple_with(arena,
@@ -178,7 +214,13 @@ def _menu_show_debug_arena(state, args):
 def _menu_show_debug_shop(state, args):
     if state is SuspendableInitial:
         gameState, = args
-        background = None
+        promise = promise_from_suspendable(_menu_show_loading_splash, gameState, [("shop splash", "shop_background.png.txt")])
+        return 1, gameState, promise
+    if state == 1:
+        gameState, *_ = args
+        visual = gamestate_get_visual(gameState)
+        background = visual_show_splash(visual, "shop_background.png.txt")
+        background["play"](60, True)
         shopView = promise_from_suspendable(_menu_show_shop, gameState, background, None)
         return SuspendableReturn, shopView
     return SuspendableExhausted
@@ -186,9 +228,57 @@ def _menu_show_debug_shop(state, args):
 def _menu_show_debug_laboratory(state, args):
     if state is SuspendableInitial:
         gameState, = args
-        background = None
+        promise = promise_from_suspendable(_menu_show_loading_splash, gameState, [("laboratory splash", "laboratory_background.png.txt")])
+        return 1, gameState, promise
+    if state == 1:
+        gameState, *_ = args
+        visual = gamestate_get_visual(gameState)
+        background = visual_show_splash(visual, "laboratory_background.png.txt")
+        background["play"](60, True)
         laboratoryView = promise_from_suspendable(_menu_show_laboratory, gameState, background, None)
         return SuspendableReturn, laboratoryView
+    return SuspendableExhausted
+
+def _menu_show_debug_inventory(state, args):
+    if state is SuspendableInitial:
+        gameState, = args
+        promise = promise_from_suspendable(_menu_show_loading_splash, gameState, [("inventory splash", "meta_background.png.txt")])
+        return 1, gameState, promise
+    if state == 1:
+        gameState, *_ = args
+        visual = gamestate_get_visual(gameState)
+        background = visual_show_splash(visual, "meta_background.png.txt")
+        background["play"](60, True)
+        inventoryView = promise_from_suspendable(_menu_show_inventory, gameState, background, None)
+        return SuspendableReturn, inventoryView
+    return SuspendableExhausted
+
+def _menu_show_debug_shop_management(state, args):
+    if state is SuspendableInitial:
+        gameState, = args
+        promise = promise_from_suspendable(_menu_show_loading_splash, gameState, [("shop splash", "shop_background.png.txt")])
+        return 1, gameState, promise
+    if state == 1:
+        gameState, *_ = args
+        visual = gamestate_get_visual(gameState)
+        background = visual_show_splash(visual, "shop_background.png.txt")
+        background["play"](60, True)
+        shopManagementView = promise_from_suspendable(_menu_show_shop_management, gameState, background, None)
+        return SuspendableReturn, shopManagementView
+    return SuspendableExhausted
+
+def _menu_show_debug_monster_management(state, args):
+    if state is SuspendableInitial:
+        gameState, = args
+        promise = promise_from_suspendable(_menu_show_loading_splash, gameState, [("monster management splash", "meta_background.png.txt")])
+        return 1, gameState, promise
+    if state == 1:
+        gameState, *_ = args
+        visual = gamestate_get_visual(gameState)
+        background = visual_show_splash(visual, "meta_background.png.txt")
+        background["play"](60, True)
+        monsterManagementView = promise_from_suspendable(_menu_show_monster_management, gameState, background, None)
+        return SuspendableReturn, monsterManagementView
     return SuspendableExhausted
 
 def __now() -> float:
