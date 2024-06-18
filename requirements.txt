@@ -1,0 +1,2 @@
+-e file:./src/utils
+-e file:./src/game
