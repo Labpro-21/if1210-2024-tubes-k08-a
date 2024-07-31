@@ -1,0 +1,13 @@
+{
+  "name": "generator-monsters",
+  "version": "1.0.0",
+  "private": true,
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "html-entities": "^2.5.2",
+    "node-html-parser": "^6.1.13",
+    "sharp": "^0.33.4"
+  }
+}

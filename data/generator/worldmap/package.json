@@ -1,0 +1,11 @@
+{
+  "name": "generator-worldmap",
+  "version": "1.0.0",
+  "private": true,
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "canvas": "^2.11.2"
+  }
+}
